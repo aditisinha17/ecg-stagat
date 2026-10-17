@@ -1,0 +1,7 @@
+{
+  "exp_name": "fc_graph",
+  "best_epoch": 2,
+  "best_val_macro_auc": 0.8752309602665086,
+  "final_train_loss": 0.6726875691623478,
+  "final_val_loss": 0.6725510086332048
+}

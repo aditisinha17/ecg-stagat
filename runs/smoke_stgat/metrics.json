@@ -1,0 +1,7 @@
+{
+  "exp_name": "smoke_stgat",
+  "best_epoch": 1,
+  "best_val_macro_auc": 0.8158796620190257,
+  "final_train_loss": 0.7872631786500707,
+  "final_val_loss": 0.8101189050121583
+}

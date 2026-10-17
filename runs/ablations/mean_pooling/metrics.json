@@ -1,0 +1,7 @@
+{
+  "exp_name": "mean_pooling",
+  "best_epoch": 2,
+  "best_val_macro_auc": 0.8619713271311331,
+  "final_train_loss": 0.6514800661431127,
+  "final_val_loss": 0.840617665222713
+}

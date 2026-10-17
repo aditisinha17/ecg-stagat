@@ -1,0 +1,6 @@
+Superclass,Baseline AUROC,ST-GAT AUROC,Delta AUROC,Baseline F1,ST-GAT F1,Delta F1
+Normal ECG (NORM),0.9200,0.9227,+0.0028,0.8266,0.8441,+0.0175
+Myocardial Infarction (MI),0.8692,0.8809,+0.0117,0.6672,0.6789,+0.0117
+ST/T-Wave Changes (STTC),0.9093,0.9153,+0.0059,0.7234,0.7324,+0.0091
+Conduction Disturbance (CD),0.8665,0.8810,+0.0144,0.6514,0.6936,+0.0422
+Hypertrophy (HYP),0.7948,0.7985,+0.0037,0.4539,0.4618,+0.0079

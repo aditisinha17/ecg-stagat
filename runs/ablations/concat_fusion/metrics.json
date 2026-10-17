@@ -1,0 +1,7 @@
+{
+  "exp_name": "concat_fusion",
+  "best_epoch": 2,
+  "best_val_macro_auc": 0.8779382964594827,
+  "final_train_loss": 0.6707514688208863,
+  "final_val_loss": 0.6675962056432452
+}

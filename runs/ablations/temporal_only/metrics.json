@@ -1,0 +1,7 @@
+{
+  "exp_name": "temporal_only",
+  "best_epoch": 2,
+  "best_val_macro_auc": 0.8669071720586089,
+  "final_train_loss": 0.659262648432246,
+  "final_val_loss": 0.7805915577071053
+}

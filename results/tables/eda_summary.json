@@ -1,0 +1,24 @@
+{
+  "total_recordings": 21799,
+  "total_patients": 18869,
+  "train_samples": 17418,
+  "val_samples": 2183,
+  "test_samples": 2198,
+  "class_counts": {
+    "NORM": 9514,
+    "MI": 5469,
+    "STTC": 5235,
+    "CD": 4898,
+    "HYP": 2649
+  },
+  "class_prevalence_pct": {
+    "NORM": 43.644203862562506,
+    "MI": 25.08830680306436,
+    "STTC": 24.014863067113172,
+    "CD": 22.468920592687738,
+    "HYP": 12.15193357493463
+  },
+  "single_label_recordings": 16244,
+  "multi_label_recordings": 5144,
+  "zero_label_recordings": 411
+}

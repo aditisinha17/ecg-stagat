@@ -1,0 +1,6 @@
+Superclass,Positive Counts,Prevalence (%),Imbalance Ratio (vs Min)
+NORM,9514,43.64%,3.59x
+MI,5469,25.09%,2.06x
+STTC,5235,24.01%,1.98x
+CD,4898,22.47%,1.85x
+HYP,2649,12.15%,1.00x

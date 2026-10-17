@@ -1,0 +1,7 @@
+{
+  "exp_name": "Baseline_CNN",
+  "best_epoch": 2,
+  "best_val_macro_auc": 0.8751595160034455,
+  "final_train_loss": 0.6567499384338602,
+  "final_val_loss": 0.6974839278629847
+}

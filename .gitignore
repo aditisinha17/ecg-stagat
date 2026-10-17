@@ -27,6 +27,7 @@ Thumbs.db
 # Logs & temp
 *.log
 scratch/
+*_backup_phase1/
 
 # Model checkpoints / weights
 *.pt

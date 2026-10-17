@@ -1,0 +1,26 @@
+data:
+  data_dir: "data/ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.3"
+  batch_size: 64
+  sampling_rate: 100
+  train_folds: [1, 2, 3, 4, 5, 6, 7, 8]
+  val_folds: [9]
+  test_folds: [10]
+  num_workers: 0
+
+model:
+  name: "stgat"
+  embed_dim: 128
+  num_classes: 5
+  num_heads: 4
+  num_gat_layers: 2
+  graph_type: "static"
+  fusion_type: "gated"
+  pooling_type: "attention"
+  dropout: 0.2
+
+training:
+  epochs: 30
+  lr: 0.001
+  weight_decay: 0.0001
+  early_stopping_patience: 7
+  device: "cpu"

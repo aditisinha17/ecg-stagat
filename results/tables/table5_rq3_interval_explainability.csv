@@ -1,0 +1,6 @@
+Superclass,Primary Pathophysiological Target,Evaluated Records,QRS Attribution (%),ST Segment Attribution (%),T-Wave Attribution (%),ST-T Combined (%),P-Wave Attribution (%),Baseline (%),NeuroKit2 Delineation Rate,Faithfulness Ratio
+NORM,Isoelectric Baseline & P-Wave (Sinus Rhythm),26,14.3%,17.8%,12.8%,30.5%,9.2%,47.2%,100.0%,-398.38x
+MI,ST Segment & T-Wave (Ventricular Repolarization / Ischemia),6,13.6%,13.9%,9.6%,23.5%,9.2%,55.0%,100.0%,-934.28x
+STTC,ST Segment & T-Wave (Ventricular Repolarization / Ischemia),6,15.2%,14.5%,9.6%,24.2%,9.6%,51.7%,100.0%,-2537.50x
+CD,QRS Complex (Ventricular Depolarization),6,15.6%,19.4%,11.7%,31.1%,10.2%,44.1%,100.0%,0.69x
+HYP,QRS Complex (Ventricular Depolarization),2,16.6%,13.0%,7.0%,20.0%,11.8%,52.4%,100.0%,2.74x

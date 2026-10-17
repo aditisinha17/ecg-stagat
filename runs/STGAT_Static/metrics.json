@@ -1,0 +1,7 @@
+{
+  "exp_name": "STGAT_Static",
+  "best_epoch": 2,
+  "best_val_macro_auc": 0.8808178974713812,
+  "final_train_loss": 0.6504848394201789,
+  "final_val_loss": 0.6446554669312068
+}
