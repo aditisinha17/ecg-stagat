@@ -128,6 +128,8 @@ class ECGRequestHandler(BaseHTTPRequestHandler):
             self.get_records_list(query)
         elif path == "/api/waveform":
             self.get_waveform(query)
+        elif path == "/api/graph_topology":
+            self.get_graph_topology()
         elif path == "/api/tables":
             self.get_tables_data()
         elif path.startswith("/figures/"):
@@ -240,6 +242,30 @@ class ECGRequestHandler(BaseHTTPRequestHandler):
             }
         })
 
+    def get_graph_topology(self):
+        from ecg_stgat.models.lead_graph import build_static_anatomical_adjacency
+        adj = build_static_anatomical_adjacency().cpu().numpy()
+        edges = []
+        for i in range(12):
+            for j in range(i + 1, 12):
+                if adj[i, j] > 0.0:
+                    edges.append({
+                        "source": LEAD_NAMES[i],
+                        "target": LEAD_NAMES[j],
+                        "source_idx": i,
+                        "target_idx": j,
+                    })
+        self.send_json({
+            "lead_names": LEAD_NAMES,
+            "adjacency_matrix": adj.tolist(),
+            "edges": edges,
+            "num_edges": len(edges),
+            "self_loops": LEAD_NAMES,
+            "num_self_loops": 12,
+            "graph_type": "static_anatomical",
+            "description": "PTB-XL 12-lead static anatomical adjacency defined in ecg_stgat.models.lead_graph.build_static_anatomical_adjacency"
+        })
+
     def handle_predict(self, data):
         idx = int(data.get("index", 0))
         model_name = data.get("model", "stgat").lower()
@@ -257,16 +283,18 @@ class ECGRequestHandler(BaseHTTPRequestHandler):
         x_t = torch.from_numpy(masked_sig).unsqueeze(0)
         t0 = time.time()
         with torch.no_grad():
-            if model_name == "stgat":
+            if model_name in ("stgat", "dropout"):
                 logits, exp = model(x_t, return_explainability=True)
-                lead_weights = exp["lead_pooling_weights"].squeeze(0).cpu().numpy().tolist()
-                gat_att = exp["gat_attention"].squeeze(0).mean(dim=0).cpu().numpy().tolist()
+                lead_weights = exp["lead_pooling_weights"].squeeze(0).detach().cpu().numpy().tolist()
+                gat_att = exp["gat_attention"].squeeze(0).mean(dim=0).detach().cpu().numpy().tolist()
+                gat_att_heads = exp["gat_attention"].squeeze(0).detach().cpu().numpy().tolist()
             else:
                 logits, exp = model(x_t, return_explainability=True)
-                lead_weights = exp["lead_pooling_weights"].squeeze(0).cpu().numpy().tolist()
+                lead_weights = exp["lead_pooling_weights"].squeeze(0).detach().cpu().numpy().tolist()
                 gat_att = None
+                gat_att_heads = None
 
-            probs = torch.sigmoid(logits).squeeze(0).cpu().numpy().tolist()
+            probs = torch.sigmoid(logits).squeeze(0).detach().cpu().numpy().tolist()
         elapsed_ms = (time.time() - t0) * 1000.0
 
         meta_row = CACHED_METADATA.iloc[idx]
@@ -280,6 +308,7 @@ class ECGRequestHandler(BaseHTTPRequestHandler):
             "ground_truth": true_super,
             "lead_weights": lead_weights,
             "gat_attention_matrix": gat_att,
+            "gat_attention_heads": gat_att_heads,
             "inference_time_ms": elapsed_ms,
         })
 

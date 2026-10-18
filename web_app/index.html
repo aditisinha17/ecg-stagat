@@ -481,19 +481,20 @@
     }
     .heart-hud {
       position: absolute;
-      top: 14px;
+      bottom: 14px;
       left: 14px;
-      background: rgba(17, 24, 39, 0.88);
+      background: rgba(10, 15, 29, 0.90);
       backdrop-filter: blur(10px);
-      border: 1px solid var(--border-subtle);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 8px;
-      padding: 0.65rem 0.95rem;
-      font-size: 0.78rem;
+      padding: 0.55rem 0.85rem;
+      font-size: 0.76rem;
       pointer-events: none;
       z-index: 10;
       display: flex;
       flex-direction: column;
-      gap: 0.25rem;
+      gap: 0.20rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
     }
     .heart-controls-bar {
       display: flex;
@@ -591,11 +592,13 @@
               </div>
               <div style="display: flex; align-items: center; gap: 0.85rem;">
                 <label style="font-size: 0.82rem; font-weight: 600;">Active Model:</label>
-                <select id="model-select">
-                  <option value="stgat">ST-GAT (Static Graph)</option>
-                  <option value="baseline">Baseline 1D-CNN</option>
+                <select id="model-select" onchange="runInference()">
+                  <option value="stgat">Proposed ST-GAT (Static Anatomical Graph)</option>
+                  <option value="baseline">Baseline 1D-CNN (Non-Graph Comparison)</option>
+                  <option value="dropout">ST-GAT (Lead-Dropout Regularized - RQ5)</option>
                 </select>
                 <button class="btn" onclick="runInference()">Run Inference</button>
+                <button class="btn btn-secondary" onclick="switchTab('tab-gap1')" title="View in 3D Heart & Spatial Graph">🫀 3D Lead Graph</button>
               </div>
             </div>
           </div>
@@ -646,121 +649,204 @@
     <!-- TAB 2: GAP 1 - SPATIAL LEAD GRAPH TOPOLOGY & 3D ANATOMICAL HEART -->
     <section id="tab-gap1" class="tab-content">
       <div class="callout" style="padding: 0.65rem 1rem; margin-bottom: 0.85rem; font-size: 0.82rem;">
-        <span style="font-weight: 700; color: #93C5FD;">Research Gap 1:</span> Standard CNNs process ECG leads as independent channels. ST-GAT incorporates <strong>clinical relational topology</strong> ($A \in \mathbb{R}^{12 \times 12}$) mapping anatomical coronary vascular territories (RCA, LAD, LCx) and 3D spatial lead vectors without heavy voxel meshes.
+        <span style="font-weight: 700; color: #93C5FD;">Research Gap 1:</span> Standard CNNs process ECG leads as a flat list of independent numbers. ST-GAT incorporates <strong>clinical relational topology</strong> ($A \in \mathbb{R}^{12 \times 12}$) mapping anatomical coronary vascular territories (RCA, LAD, LCx) and 3D spatial lead vectors without heavy voxel meshes.
       </div>
 
-      <!-- 3D Heart Main Card -->
-      <div class="card" style="margin-bottom: 1.5rem;">
-        <div class="card-header">
-          <span class="card-title">
-            <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-            Interactive 3D Anatomical Heart & 12-Lead Vector Explorer
-          </span>
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34D399;">
-              <span class="badge-dot" style="background: #10B981;"></span> 3D WebGL Active
+      <!-- Main Viewer Card: 3D Heart & Synchronized 2D Graph -->
+      <div class="card" style="margin-bottom: 1.25rem;">
+        <div class="card-header" style="flex-wrap: wrap; gap: 0.75rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span class="card-title" style="margin-bottom: 0;">
+              <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              Interactive 3D Anatomical Heart & 12-Lead Spatial Graph
             </span>
+            <span class="badge" id="node-validation-badge" style="background: rgba(16, 185, 129, 0.15); color: #34D399;">
+              <span class="badge-dot" style="background: #10B981;"></span> Nodes: 12/12 Verified
+            </span>
+            <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #60A5FA;">
+              <span class="badge-dot" style="background: #3B82F6;"></span> 3D WebGL Active
+            </span>
+          </div>
+
+          <!-- View Mode Toggle: 3D Heart, Synchronized 2D Graph, or Side-by-Side Dual View -->
+          <div style="display: flex; gap: 0.35rem; align-items: center; background: rgba(0,0,0,0.25); padding: 3px; border-radius: 6px; border: 1px solid var(--border-subtle);">
+            <button class="btn btn-secondary btn-sm active" id="btn-view-3d" onclick="setGraphDisplayView('3d')" style="padding: 0.25rem 0.65rem;">🫀 3D Heart View</button>
+            <button class="btn btn-secondary btn-sm" id="btn-view-2d" onclick="setGraphDisplayView('2d')" style="padding: 0.25rem 0.65rem;">🕸️ Synchronized 2D Graph</button>
+            <button class="btn btn-secondary btn-sm" id="btn-view-dual" onclick="setGraphDisplayView('dual')" style="padding: 0.25rem 0.65rem;">⚡ Side-by-Side Dual View</button>
           </div>
         </div>
 
-        <!-- Controls Toolbar Row 1: Camera Presets & Playback -->
-        <div class="heart-controls-bar">
+        <!-- Controls Toolbar Row 1: Camera Presets & Travelling Current -->
+        <div class="heart-controls-bar" style="margin-bottom: 0.55rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
           <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-right: 0.25rem;">Camera Views:</span>
           <button class="btn btn-secondary btn-sm" onclick="setHeartCameraView('frontal')">🫀 Frontal Hexaxial</button>
           <button class="btn btn-secondary btn-sm" onclick="setHeartCameraView('precordial')">🔄 Precordial Wrap</button>
-          <button class="btn btn-secondary btn-sm" onclick="setHeartCameraView('axis')">⚡ Conduction Axis (+60°)</button>
-          <button class="btn btn-secondary btn-sm" onclick="setHeartCameraView('inferior')">🩸 Inferior STEMI (RCA)</button>
-          <button class="btn btn-secondary btn-sm" onclick="setHeartCameraView('anterior')">🩸 Anterior STEMI (LAD)</button>
-          <button class="btn btn-secondary btn-sm" onclick="setHeartCameraView('lateral')">🩸 Lateral STEMI (LCx)</button>
+          <button class="btn btn-secondary btn-sm" onclick="setHeartCameraView('inferior')">⚡ Inferior View</button>
+          <button class="btn btn-secondary btn-sm" onclick="setHeartCameraView('anterior')">🩸 Anterior View</button>
+          <button class="btn btn-secondary btn-sm" onclick="setHeartCameraView('lateral')">🧬 Lateral View</button>
+          <button class="btn btn-secondary btn-sm" onclick="resetHeart3DView()">Reset View</button>
 
           <div style="margin-left: auto; display: flex; gap: 0.5rem; align-items: center;">
-            <button class="btn btn-secondary btn-sm" id="btn-toggle-pulse" onclick="toggleHeartPulse()">💓 Heartbeat: ON</button>
-            <button class="btn btn-secondary btn-sm" id="btn-toggle-autorotate" onclick="toggleHeartAutoRotate()">🔄 Auto-Rotate: OFF</button>
-            <button class="btn btn-secondary btn-sm" onclick="resetHeart3DView()">Reset View</button>
+            <button class="btn btn-secondary btn-sm" id="btn-toggle-current" onclick="toggleTravellingCurrent()" style="background: rgba(245, 158, 11, 0.2); border-color: #f59e0b; color: #fbbf24; font-weight: 600;">⚡ Travelling Current: ON</button>
+            <button class="btn btn-secondary btn-sm" id="btn-toggle-pulse" onclick="toggleHeartPulse()">💓 Heartbeat: OFF</button>
+            <button class="btn btn-secondary btn-sm" id="btn-layer-transparent" onclick="toggleHeartTransparency()">👁️ Translucent Myocardium</button>
+            <button class="btn btn-secondary btn-sm btn-layer active" id="btn-toggle-badges" onclick="toggleLeadBadges()">🏷️ Labels: ON</button>
           </div>
         </div>
 
-        <!-- Controls Toolbar Row 2: Visible Layers & Connections -->
-        <div class="heart-controls-bar" style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.55rem; margin-top: -0.35rem;">
-          <span style="font-size: 0.8rem; font-weight: 600; color: #93C5FD; margin-right: 0.25rem;">Connections & Layers:</span>
-          <button class="btn btn-secondary btn-sm btn-layer active" id="btn-layer-edges" onclick="toggleLayer('edges')">🔗 ST-GAT Graph Edges: ON</button>
-          <button class="btn btn-secondary btn-sm btn-layer active" id="btn-layer-vectors" onclick="toggleLayer('vectors')">🎯 Lead-to-Heart Rays: ON</button>
-          <button class="btn btn-secondary btn-sm btn-layer active" id="btn-layer-conduction" onclick="toggleLayer('conduction')">⚡ Conduction Network: ON</button>
-          <button class="btn btn-secondary btn-sm btn-layer active" id="btn-layer-coronary" onclick="toggleLayer('coronary')">🩸 Coronary Arteries: ON</button>
-          <button class="btn btn-secondary btn-sm btn-layer active" id="btn-layer-planes" onclick="toggleLayer('planes')">📐 Hexaxial & Thorax: ON</button>
-          <button class="btn btn-secondary btn-sm btn-layer" id="btn-layer-transparent" onclick="toggleHeartTransparency()">👁️ Translucent Myocardium</button>
+        <!-- Conduction Status Row -->
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 0.35rem 0.85rem; margin-bottom: 0.55rem; display: flex; align-items: center; justify-content: space-between; font-size: 0.76rem;">
+          <div style="display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: #f59e0b; font-weight: 700;">Cardiac Conduction Wave:</span>
+            <span id="conduction-phase-pill" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; padding: 2px 8px; border-radius: 9999px; font-weight: 600; font-family: 'JetBrains Mono', monospace;">SA Node → Atrial Depol (P-Wave)</span>
+          </div>
+          <div style="color: var(--text-muted); font-size: 0.72rem;">
+            Pathway: SA Node (RA) → Atria → AV Node Delay → Bundle of His / Septum → Ventricles (QRS) → Repolarization (T-Wave)
+          </div>
         </div>
 
-        <!-- 3D Layout: Left 3D Canvas, Right Telemetry Panel -->
-        <div style="display: grid; grid-template-columns: 1fr 340px; gap: 1.25rem;">
-          <!-- 3D Canvas Container -->
-          <div class="heart-3d-wrapper" id="heart-3d-container">
-            <div class="heart-hud" id="heart-hud-badge">
-              <span style="color: var(--accent-cyan); font-weight: 700;">3D CARDIAC TELEMETRY</span>
-              <span id="hud-lead-name" style="font-weight: 600;">Active Lead: Lead II (+60°)</span>
-              <span id="hud-territory" style="color: var(--text-muted);">Wall: Inferior / Apical</span>
-              <span style="font-size: 0.7rem; color: #64748B;">Drag to rotate 360° | Scroll to zoom</span>
-            </div>
+        <!-- Controls Toolbar Row 2: Graph Filter & K=4 Attention Heads -->
+        <div class="heart-controls-bar" style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.55rem; display: flex; flex-wrap: wrap; gap: 0.55rem; align-items: center;">
+          <span style="font-size: 0.8rem; font-weight: 600; color: #93C5FD; margin-right: 0.25rem;">3D Graph Filter:</span>
+          <select id="edge-filter-select" onchange="filterGraphEdges(this.value)" style="font-size: 0.78rem; padding: 4px 8px; background: var(--bg-surface); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 4px;">
+            <option value="all">All 16 Model Edges (Full Topology)</option>
+            <option value="incident">Selected Lead Incident Edges Only</option>
+            <option value="anatomical">Clean Anatomical Views (Default - No Diagonals)</option>
+            <option value="precordial">Precordial Arc Only (V1–V6: 5 Edges)</option>
+            <option value="inferior">Inferior Wall Only (II, III, aVF: 3 Edges)</option>
+            <option value="lateral">Lateral & Cross Only (I, aVL, V5, V6: 5 Edges)</option>
+            <option value="reciprocal">Cavity Reciprocal (aVR: 3 Edges)</option>
+          </select>
+
+          <span style="font-size: 0.8rem; font-weight: 600; color: #38bdf8; margin-left: 0.5rem; margin-right: 0.25rem;">GATv2 Attention (K=4 Heads):</span>
+          <select id="attention-head-select" onchange="setAttentionHead(this.value)" style="font-size: 0.78rem; padding: 4px 8px; background: var(--bg-surface); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 4px;">
+            <option value="-1">Mean Attention (All 4 Heads)</option>
+            <option value="0">Head 1 (k=0)</option>
+            <option value="1">Head 2 (k=1)</option>
+            <option value="2">Head 3 (k=2)</option>
+            <option value="3">Head 4 (k=3)</option>
+          </select>
+
+          <div style="margin-left: auto; font-size: 0.75rem; color: #94a3b8;" id="hud-status-banner">
+            Active: <strong style="color: #38bdf8;" id="active-lead-status">Lead II (+60°)</strong> | Model: <span id="hud-model-name" style="color: #34d399;">ST-GAT (K=4)</span>
+          </div>
+        </div>
+
+        <!-- Visualization Canvas Container (Single 3D, Single 2D, or Dual Side-by-Side) -->
+        <div id="vis-display-container" style="display: grid; grid-template-columns: 1fr; gap: 1rem; margin-bottom: 0.75rem;">
+          <!-- 3D Heart Canvas -->
+          <div class="heart-3d-wrapper" id="heart-3d-container" style="height: 540px; background: radial-gradient(circle at 50% 40%, #101726 0%, #060a12 100%); border: 1px solid rgba(255, 255, 255, 0.10); position: relative; border-radius: 12px; overflow: hidden;">
           </div>
 
-          <!-- Telemetry & Clinical Insight Panel -->
-          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-            <div class="heart-telemetry">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                <h4 style="font-size: 0.95rem; font-weight: 700; color: #93C5FD;" id="tel-lead-title">Lead II (Inferior Axis)</h4>
-                <span class="badge" id="tel-plane-badge" style="background: rgba(59,130,246,0.15); color: #60A5FA;">Frontal Hexaxial</span>
-              </div>
-              <div class="telemetry-row">
-                <span class="telemetry-label">Viewing Angle:</span>
-                <span class="telemetry-val" id="tel-angle">+60°</span>
-              </div>
-              <div class="telemetry-row">
-                <span class="telemetry-label">Myocardial Wall:</span>
-                <span class="telemetry-val" id="tel-wall">Inferior / Diaphragmatic</span>
-              </div>
-              <div class="telemetry-row">
-                <span class="telemetry-label">Coronary Artery:</span>
-                <span class="telemetry-val" id="tel-artery">Right Coronary (RCA)</span>
-              </div>
-              <div class="telemetry-row">
-                <span class="telemetry-label">Clinical Target:</span>
-                <span class="telemetry-val" id="tel-target">Inferior MI (ST-Elevation)</span>
-              </div>
-              <div class="telemetry-row">
-                <span class="telemetry-label">Graph Routing:</span>
-                <span class="telemetry-val" id="tel-neighbors">Leads III, aVF, and I</span>
-              </div>
-
-              <div style="margin-top: 0.75rem; font-size: 0.75rem; color: var(--text-muted); line-height: 1.45; background: rgba(255,255,255,0.03); padding: 0.6rem; border-radius: 6px;" id="tel-rationale">
-                <strong>Why Spatial Graph Attention Matters:</strong> Lead II looks directly at the cardiac apex and inferior wall from +60°. Pathologies like Inferior STEMI simultaneously affect contiguous leads II, III, and aVF. ST-GAT routes inter-lead attention across this anatomical grouping to dramatically improve classification calibration.
-              </div>
+          <!-- Synchronized 2D Planar Graph Card (Shown in 2D or Dual Mode) -->
+          <div id="sync-2d-graph-card" style="display: none; height: 540px; background: radial-gradient(circle at 50% 40%, #101726 0%, #060a12 100%); border: 1px solid rgba(255, 255, 255, 0.10); border-radius: 12px; position: relative; overflow: hidden; align-items: center; justify-content: center; flex-direction: column;">
+            <svg id="lead-graph-sync-svg" width="100%" height="100%" viewBox="0 0 600 520" style="max-height: 540px;"></svg>
+            <div style="position: absolute; bottom: 10px; font-size: 0.72rem; color: var(--text-muted); text-align: center; pointer-events: none;">
+              Synchronized Planar Graph: 12 Leads & 16 Static Edges with Live GATv2 Attention Scaling
             </div>
+          </div>
+        </div>
 
-            <!-- Quick Lead Selector Grid -->
-            <div class="card" style="padding: 0.85rem;">
-              <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">
-                Select Lead to Inspect in 3D:
-              </span>
-              <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.35rem;" id="lead-btn-selector-3d">
-                <button class="btn btn-secondary btn-sm" style="padding: 0.3rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('I')">I</button>
-                <button class="btn btn-secondary btn-sm" style="padding: 0.3rem 0; text-align: center; justify-content: center; background: var(--accent-blue);" onclick="selectLead3D('II')">II</button>
-                <button class="btn btn-secondary btn-sm" style="padding: 0.3rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('III')">III</button>
-                <button class="btn btn-secondary btn-sm" style="padding: 0.3rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('AVR')">aVR</button>
-                <button class="btn btn-secondary btn-sm" style="padding: 0.3rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('AVL')">aVL</button>
-                <button class="btn btn-secondary btn-sm" style="padding: 0.3rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('AVF')">aVF</button>
-                <button class="btn btn-secondary btn-sm" style="padding: 0.3rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('V1')">V1</button>
-                <button class="btn btn-secondary btn-sm" style="padding: 0.3rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('V2')">V2</button>
-                <button class="btn btn-secondary btn-sm" style="padding: 0.3rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('V3')">V3</button>
-                <button class="btn btn-secondary btn-sm" style="padding: 0.3rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('V4')">V4</button>
-                <button class="btn btn-secondary btn-sm" style="padding: 0.3rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('V5')">V5</button>
-                <button class="btn btn-secondary btn-sm" style="padding: 0.3rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('V6')">V6</button>
-              </div>
-            </div>
+        <!-- External Scientific Legend & Validation Bar -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.65rem 1rem; font-size: 0.73rem; color: #cbd5e1; display: flex; flex-direction: column; gap: 0.35rem;">
+          <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center;">
+            <span><span style="display:inline-block; width:11px; height:11px; background:#df707c; border-radius:50%; margin-right:5px; vertical-align:middle;"></span> <strong>Heart:</strong> Anatomical Model (Peach Myocardium, Red Aorta, Blue Pulmonary/SVC)</span>
+            <span><span style="display:inline-block; width:11px; height:11px; background:#10B981; border-radius:50%; margin-right:5px; vertical-align:middle;"></span> <strong>Electrodes:</strong> 12 Standard Clinical Leads (Circular Badges)</span>
+            <span><span style="display:inline-block; width:18px; height:2px; background:#38bdf8; vertical-align:middle; margin-right:5px;"></span> <strong>ST-GAT Topology:</strong> 16 Undirected Model Edges (A<sub>ij</sub> = 1)</span>
+            <span><span style="font-weight:600; color:#fbbf24;">⚡ Travelling Current:</span> SA $\to$ AV $\to$ His $\to$ Ventricles + Attention-scaled Edge Pulses</span>
+          </div>
+          <div style="font-size: 0.68rem; color: var(--text-muted); line-height: 1.45;">
+            <strong>Scientific Validation:</strong> Displayed graph connections strictly match the 12×12 static adjacency matrix in <code>ecg_stgat.models.lead_graph.build_static_anatomical_adjacency</code>. Nodes remain completely stationary (no orbiting paths). Learned attention weights reflect neural feature routing in latent space and do NOT denote physical blood circulation.
           </div>
         </div>
       </div>
 
-      <!-- 2D Relational Topology & Ablation Studies (Lower Half) -->
+      <!-- UNCLIPPED TELEMETRY & CLINICAL INSIGHT SECTION (Clean 3-Column Responsive Layout) -->
+      <div class="card" style="padding: 1.1rem; margin-bottom: 1.5rem;">
+        <div class="card-header" style="margin-bottom: 0.85rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.06);">
+          <div style="display: flex; align-items: center; gap: 0.65rem;">
+            <span class="card-title" style="margin-bottom: 0;">
+              📊 Active Lead Telemetry & Dynamic GATv2 Attention Readout
+            </span>
+            <span class="badge" id="tel-plane-badge" style="background: rgba(59,130,246,0.15); color: #60A5FA;">Frontal Hexaxial</span>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Click any lead in 3D or 2D to inspect</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 280px 1fr 300px; gap: 1.25rem; align-items: start;">
+          <!-- Col 1: Lead Clinical Profile -->
+          <div style="background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem;">
+            <h4 style="font-size: 0.95rem; font-weight: 700; color: #93C5FD; margin-bottom: 0.65rem;" id="tel-lead-title">Lead II · Inferior</h4>
+            <div class="telemetry-row">
+              <span class="telemetry-label">Viewing Angle:</span>
+              <span class="telemetry-val" id="tel-angle">+60°</span>
+            </div>
+            <div class="telemetry-row">
+              <span class="telemetry-label">Lead Type:</span>
+              <span class="telemetry-val" id="tel-lead-type">Bipolar Limb Lead (LL - RA)</span>
+            </div>
+            <div class="telemetry-row">
+              <span class="telemetry-label">Myocardial Wall:</span>
+              <span class="telemetry-val" id="tel-wall">Inferior / Diaphragmatic</span>
+            </div>
+            <div class="telemetry-row">
+              <span class="telemetry-label">Coronary Artery:</span>
+              <span class="telemetry-val" id="tel-artery">Right Coronary Artery (RCA)</span>
+            </div>
+            <div class="telemetry-row">
+              <span class="telemetry-label">Clinical Target:</span>
+              <span class="telemetry-val" id="tel-target">Inferior STEMI & Rhythm</span>
+            </div>
+            <div class="telemetry-row" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">
+              <span class="telemetry-label">Graph Routing:</span>
+              <span class="telemetry-val" id="tel-neighbors" style="color: #38bdf8; font-weight: 600;">III, aVF, aVR</span>
+            </div>
+          </div>
+
+          <!-- Col 2: Extracted Attention Weights Table (Unclipped Scrollable Container) -->
+          <div style="background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem; min-height: 220px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+              <span style="font-size: 0.82rem; font-weight: 700; color: #93C5FD;">
+                Extracted GATv2 Attention for Active Lead:
+              </span>
+              <span style="font-size: 0.72rem; color: #38bdf8;" id="tel-head-indicator">Head Mean (All 4 Heads)</span>
+            </div>
+            <div id="tel-attention-table-container" style="max-height: 180px; overflow-y: auto;">
+              <div style="font-size:0.74rem; color:var(--text-muted); padding:0.4rem;">Select a record in Tab 1 to view live extracted attention weights.</div>
+            </div>
+          </div>
+
+          <!-- Col 3: Lead Quick Selector Grid & Clinical Context -->
+          <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+            <div style="background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem;">
+              <span style="font-size: 0.76rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">
+                Quick Lead Selector:
+              </span>
+              <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.35rem;" id="lead-btn-selector-3d">
+                <button class="btn btn-secondary btn-sm" style="padding: 0.25rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('I')">I</button>
+                <button class="btn btn-secondary btn-sm" style="padding: 0.25rem 0; text-align: center; justify-content: center; background: var(--accent-blue);" onclick="selectLead3D('II')">II</button>
+                <button class="btn btn-secondary btn-sm" style="padding: 0.25rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('III')">III</button>
+                <button class="btn btn-secondary btn-sm" style="padding: 0.25rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('AVR')">aVR</button>
+                <button class="btn btn-secondary btn-sm" style="padding: 0.25rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('AVL')">aVL</button>
+                <button class="btn btn-secondary btn-sm" style="padding: 0.25rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('AVF')">aVF</button>
+                <button class="btn btn-secondary btn-sm" style="padding: 0.25rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('V1')">V1</button>
+                <button class="btn btn-secondary btn-sm" style="padding: 0.25rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('V2')">V2</button>
+                <button class="btn btn-secondary btn-sm" style="padding: 0.25rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('V3')">V3</button>
+                <button class="btn btn-secondary btn-sm" style="padding: 0.25rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('V4')">V4</button>
+                <button class="btn btn-secondary btn-sm" style="padding: 0.25rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('V5')">V5</button>
+                <button class="btn btn-secondary btn-sm" style="padding: 0.25rem 0; text-align: center; justify-content: center;" onclick="selectLead3D('V6')">V6</button>
+              </div>
+            </div>
+
+            <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.45; background: var(--bg-elevated); border: 1px solid var(--border-subtle); padding: 0.65rem 0.85rem; border-radius: 8px;" id="tel-rationale">
+              <strong>Physiological Context:</strong> Lead II parallels the normal cardiac electrical axis (+60°). Contiguous with III and aVF for acute inferior STEMI detection.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2D Relational Topology & Ablation Studies (Lower Half) -->
       <div class="grid-2">
         <!-- Interactive Graph SVG -->
         <div class="card">
@@ -1140,6 +1226,9 @@
 
       if (tabId === 'tab-gap1') {
         setTimeout(initOrResizeHeart3D, 60);
+        if (!latestGATAttentionMatrix && typeof runInference === 'function') {
+          runInference();
+        }
       } else if (tabId === 'tab-gap3') {
         setTimeout(drawDegradationChart, 60);
       } else if (tabId === 'tab-diagnosis') {
@@ -1292,6 +1381,9 @@
         document.getElementById("inference-time").innerText = `Latency: ${data.inference_time_ms.toFixed(1)} ms`;
         renderProbabilities(data.probabilities, data.ground_truth);
         renderLeadWeights(data.lead_weights);
+        if (typeof update3DGraphAttention === "function") {
+          update3DGraphAttention(data.gat_attention_matrix, data.gat_attention_heads, data.model, data.lead_weights);
+        }
       } catch (e) {
         console.error("Error running inference:", e);
       }
@@ -1350,47 +1442,52 @@
       }
     }
 
-    // Draw 12-Lead Anatomical Graph SVG
-    function drawLeadGraph() {
+    // Draw 12-Lead Anatomical Graph SVG (Synchronized with Backend Ground Truth)
+    async function drawLeadGraph() {
       const svg = document.getElementById("lead-graph-svg");
+      if (!svg) return;
+
       const nodes = [
-        { id: "I", x: 100, y: 80, group: "Limb Lateral" },
-        { id: "II", x: 140, y: 190, group: "Limb Inferior" },
-        { id: "III", x: 230, y: 220, group: "Limb Inferior" },
-        { id: "AVR", x: 60, y: 140, group: "Reciprocal" },
-        { id: "AVL", x: 180, y: 60, group: "Limb Lateral" },
-        { id: "AVF", x: 200, y: 160, group: "Limb Inferior" },
-        { id: "V1", x: 300, y: 100, group: "Precordial Septal" },
-        { id: "V2", x: 350, y: 130, group: "Precordial Septal" },
-        { id: "V3", x: 390, y: 180, group: "Precordial Anterior" },
-        { id: "V4", x: 410, y: 240, group: "Precordial Anterior" },
-        { id: "V5", x: 390, y: 310, group: "Precordial Lateral" },
-        { id: "V6", x: 330, y: 360, group: "Precordial Lateral" },
+        { id: "I", x: 100, y: 80, group: "Limb Lateral", color: "#0284c7" },
+        { id: "II", x: 140, y: 190, group: "Limb Inferior", color: "#059669" },
+        { id: "III", x: 230, y: 220, group: "Limb Inferior", color: "#059669" },
+        { id: "AVR", x: 60, y: 140, group: "Reciprocal", color: "#d97706" },
+        { id: "AVL", x: 180, y: 60, group: "Limb Lateral", color: "#0284c7" },
+        { id: "AVF", x: 200, y: 160, group: "Limb Inferior", color: "#059669" },
+        { id: "V1", x: 300, y: 100, group: "Precordial Septal", color: "#7c3aed" },
+        { id: "V2", x: 350, y: 130, group: "Precordial Septal", color: "#7c3aed" },
+        { id: "V3", x: 390, y: 180, group: "Precordial Anterior", color: "#d946ef" },
+        { id: "V4", x: 410, y: 240, group: "Precordial Anterior", color: "#d946ef" },
+        { id: "V5", x: 390, y: 310, group: "Precordial Lateral", color: "#0284c7" },
+        { id: "V6", x: 330, y: 360, group: "Precordial Lateral", color: "#0284c7" },
       ];
 
-      const edges = [
-        ["I", "AVL"], ["II", "III"], ["II", "AVF"], ["III", "AVF"],
-        ["AVR", "I"], ["AVR", "II"], ["AVR", "AVL"],
-        ["V1", "V2"], ["V2", "V3"], ["V3", "V4"], ["V4", "V5"], ["V5", "V6"],
-        ["I", "V5"], ["I", "V6"], ["AVL", "V5"], ["AVL", "V6"],
-      ];
+      try {
+        const res = await fetch("/api/graph_topology");
+        const topo = await res.json();
+        const edges = topo.edges || [];
 
-      let svgHtml = "";
-      edges.forEach(([s, t]) => {
-        const n1 = nodes.find(n => n.id === s);
-        const n2 = nodes.find(n => n.id === t);
-        svgHtml += `<line x1="${n1.x}" y1="${n1.y}" x2="${n2.x}" y2="${n2.y}" stroke="rgba(59, 130, 246, 0.4)" stroke-width="1.8" />`;
-      });
+        let svgHtml = "";
+        edges.forEach(e => {
+          const n1 = nodes.find(n => n.id === e.source);
+          const n2 = nodes.find(n => n.id === e.target);
+          if (n1 && n2) {
+            svgHtml += `<line x1="${n1.x}" y1="${n1.y}" x2="${n2.x}" y2="${n2.y}" stroke="rgba(14, 165, 233, 0.45)" stroke-width="2.0" />`;
+          }
+        });
 
-      nodes.forEach(n => {
-        svgHtml += `
-          <g style="cursor: pointer;">
-            <circle cx="${n.x}" cy="${n.y}" r="17" fill="#1E293B" stroke="#3B82F6" stroke-width="2" />
-            <text x="${n.x}" y="${n.y + 4}" fill="#F8FAFC" font-size="10" font-weight="bold" font-family="JetBrains Mono" text-anchor="middle">${n.id}</text>
-          </g>
-        `;
-      });
-      svg.innerHTML = svgHtml;
+        nodes.forEach(n => {
+          svgHtml += `
+            <g style="cursor: pointer;" onclick="selectLead3D('${n.id}')">
+              <circle cx="${n.x}" cy="${n.y}" r="17" fill="#0f172a" stroke="${n.color}" stroke-width="2.2" />
+              <text x="${n.x}" y="${n.y + 4}" fill="#F8FAFC" font-size="10" font-weight="bold" font-family="JetBrains Mono" text-anchor="middle">${n.id}</text>
+            </g>
+          `;
+        });
+        svg.innerHTML = svgHtml;
+      } catch (e) {
+        console.error("Error drawing lead graph:", e);
+      }
     }
 
     // Explainability Handler
@@ -1524,6 +1621,7 @@
         document.getElementById(`lead-toggle-${idx}`).classList.add("active");
       }
       document.getElementById("active-lead-count").innerText = `${activeLeads.length}/12 Leads Active`;
+      if (typeof updateActiveLeads3D === "function") updateActiveLeads3D(activeLeads);
     }
 
     function setPresetLeads(type) {
@@ -1540,6 +1638,7 @@
         else el.classList.remove("active");
       });
       document.getElementById("active-lead-count").innerText = `${activeLeads.length}/12 Leads Active`;
+      if (typeof updateActiveLeads3D === "function") updateActiveLeads3D(activeLeads);
     }
 
     async function runMissingLeadSim() {
@@ -1749,240 +1848,290 @@
     }
 
     // ========================================================
-    // 3D ANATOMICAL HEART & 12-LEAD VECTOR SCENE (REFINED)
+    // ========================================================
+    // ========================================================
+    // 3D ANATOMICAL HEART & 12-LEAD ST-GAT SPATIAL TOPOLOGY
+    // High-Fidelity Medical Visualization Matching Reference Layout
     // ========================================================
     let heart3DScene, heart3DCamera, heart3DRenderer, heart3DControls;
-    let heartMeshGroup, leadNodesGroup, graphEdgesGroup, projectionsGroup, referencePlanesGroup;
-    let ventriclesGroup, atriaGroup, vesselsGroup, coronaryGroup, conductionGroup;
-    let ventriclesMesh, aortaMesh, pulmonaryMesh, ladMesh;
-    let heartPulseActive = true;
-    let heartAutoRotate = false; // Default OFF so user begins on the canonical frontal view
+    let heartMeshGroup, leadNodesGroup, graphEdgesGroup, conductionGroup, graphPulsesGroup;
+    let ventriclesMesh, atriaGroup, vesselsGroup, coronaryGroup;
+    let heartPulseActive = false;
+    let heartAutoRotate = false;
     let isHeart3DInitialized = false;
     let active3DLead = 'II';
     let heartAnimTime = 0;
     let heartTranslucent = false;
+    let showGraphEdges = true;
+    let showLeadBadges = true;
+    let travellingCurrentActive = true;
+    let currentEdgeFilter = 'all'; // Default: Show all 16 genuine ST-GAT edges
+    let currentAttentionHead = -1; // -1: Mean of 4 heads; 0..3: specific head
+    let currentDisplayView = '3d'; // '3d', '2d', or 'dual'
 
-    // Layer Visibility State
-    const activeLayers = {
-      edges: true,
-      vectors: true,
-      conduction: true,
-      coronary: true,
-      planes: true
-    };
+    // Extracted Attention Data from Backend
+    let latestGATAttentionMatrix = null;
+    let latestGATAttentionHeads = null;
+    let latestModelName = 'stgat';
+    let latestLeadWeights = null;
 
-    // 12 ECG Leads in 3D Anatomical Space (Standard Clinical Positions)
-    // Anatomical Coordinates: +X = Patient Left (Screen Right), -X = Patient Right (Screen Left)
-    //                         +Y = Superior (Head),           -Y = Infer    const LEAD_3D_DATA = {
+    // --------------------------------------------------------
+    // A. 12 ECG LEADS - CIRCULAR PERIMETER REFERENCE LAYOUT
+    // Exactly 12 leads, validated against model node ordering:
+    // ['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
+    // Limb leads on left/top; Precordial leads on right/bottom.
+    // --------------------------------------------------------
+    const LEAD_3D_DATA = {
       'I': {
+        idx: 0,
         name: 'Lead I',
-        angle: '0°',
+        badgeText: 'I',
+        angle: '0° (12 o\'clock)',
         plane: 'Frontal (Coronal)',
         wall: 'High Lateral Wall (LV)',
         artery: 'Left Circumflex (LCx) / Diagonal',
         target: 'High Lateral Ischemia / Infarction',
-        neighbors: ['AVL', 'V5', 'V6'],
-        pos: [2.50, 0.0, 0.0],
-        badgeOffset: [0.45, 0.0, 0.0],
-        targetPos: [0.72, 0.12, -0.05],
-        color: 0x06B6D4,
-        cluster: 'lateral',
-        rationale: 'Bipolar limb lead recording potential difference between Left Arm (+) and Right Arm (-). Hallmark lead for high lateral LV free wall infarction.'
-      },
-      'II': {
-        name: 'Lead II',
-        angle: '+60°',
-        plane: 'Frontal (Coronal)',
-        wall: 'Inferior / Diaphragmatic Wall (Apex)',
-        artery: 'Right Coronary (RCA) / PDA',
-        target: 'Inferior STEMI & Primary Rhythm Lead',
-        neighbors: ['III', 'AVF', 'I'],
-        pos: [1.25, -2.16, 0.0],
-        badgeOffset: [0.34, -0.34, 0.0],
-        targetPos: [0.30, -1.25, 0.18],
-        color: 0x10B981,
-        cluster: 'inferior',
-        rationale: 'Parallels the normal mean cardiac electrical axis (+60°). Contiguous with III and aVF for diagnosing acute inferior STEMI.'
-      },
-      'III': {
-        name: 'Lead III',
-        angle: '+120°',
-        plane: 'Frontal (Coronal)',
-        wall: 'Inferior / Diaphragmatic Wall',
-        artery: 'Right Coronary (RCA)',
-        target: 'Inferior STEMI & Right Axis Deviation',
-        neighbors: ['II', 'AVF'],
-        pos: [-1.25, -2.16, 0.0],
-        badgeOffset: [-0.34, -0.34, 0.0],
-        targetPos: [-0.22, -1.05, -0.12],
-        color: 0x10B981,
-        cluster: 'inferior',
-        rationale: 'Bipolar lead between Left Leg (+) and Left Arm (-). Crucial for verifying inferior wall involvement and electrical axis deviation.'
+        pos: [0.0, 2.75, 0.0],
+        color: 0x06b6d4, // Cyan (Top Center)
+        cluster: 'Lateral Limb',
+        type: 'Bipolar Limb Lead (LA - RA)',
+        rationale: 'Bipolar limb lead recording potential difference between Left Arm (+) and Right Arm (-). Hallmark lead for high lateral LV free wall pathology.'
       },
       'AVR': {
+        idx: 3,
         name: 'Lead aVR',
-        angle: '-150°',
+        badgeText: 'aVR',
+        angle: '-150° (10:30 o\'clock)',
         plane: 'Frontal (Coronal)',
         wall: 'Ventricular Cavity / Basal Septum',
         artery: 'Left Main Coronary Artery (LMCA)',
         target: 'LMCA Occlusion / Proximal LAD Stenosis',
-        neighbors: ['V1'],
-        pos: [-2.16, 1.25, 0.0],
-        badgeOffset: [-0.38, 0.34, 0.0],
-        targetPos: [-0.25, 0.35, 0.02],
-        color: 0xF59E0B,
-        cluster: 'cavity',
-        rationale: 'Looks into the ventricular cavity from the right shoulder. ST elevation in aVR is a critical marker of catastrophic LMCA stenosis.'
+        pos: [-2.20, 2.15, 0.0],
+        color: 0xf59e0b, // Amber (Upper Left)
+        cluster: 'Cavity Reciprocal',
+        type: 'Augmented Unipolar Limb Lead (RA)',
+        rationale: 'Looks into the ventricular cavity from the right shoulder. ST elevation in aVR is a critical marker of LMCA or proximal LAD occlusion.'
+      },
+      'II': {
+        idx: 1,
+        name: 'Lead II',
+        badgeText: 'II',
+        angle: '+60° (9:30 o\'clock)',
+        plane: 'Frontal (Coronal)',
+        wall: 'Inferior / Diaphragmatic Wall (Apex)',
+        artery: 'Right Coronary Artery (RCA) / PDA',
+        target: 'Inferior STEMI & Primary Rhythm Lead',
+        pos: [-3.15, 0.80, 0.0],
+        color: 0x10b981, // Emerald Green (Mid Left)
+        cluster: 'Inferior Limb',
+        type: 'Bipolar Limb Lead (LL - RA)',
+        rationale: 'Parallels the normal mean cardiac electrical axis (+60°). Contiguous with III and aVF for diagnosing acute inferior STEMI.'
+      },
+      'III': {
+        idx: 2,
+        name: 'Lead III',
+        badgeText: 'III',
+        angle: '+120° (8:30 o\'clock)',
+        plane: 'Frontal (Coronal)',
+        wall: 'Inferior / Diaphragmatic Wall',
+        artery: 'Right Coronary Artery (RCA)',
+        target: 'Inferior STEMI & Right Axis Deviation',
+        pos: [-3.15, -0.80, 0.0],
+        color: 0x14b8a6, // Teal (Lower Left)
+        cluster: 'Inferior Limb',
+        type: 'Bipolar Limb Lead (LL - LA)',
+        rationale: 'Bipolar lead between Left Leg (+) and Left Arm (-). Crucial for verifying inferior wall involvement and electrical axis deviation.'
+      },
+      'AVF': {
+        idx: 5,
+        name: 'Lead aVF',
+        badgeText: 'aVF',
+        angle: '+90° (7:30 o\'clock)',
+        plane: 'Frontal (Coronal)',
+        wall: 'Inferior Diaphragmatic Wall',
+        artery: 'Right Coronary Artery (RCA)',
+        target: 'Inferior STEMI',
+        pos: [-2.20, -2.15, 0.0],
+        color: 0x22c55e, // Bright Green (Bottom Left)
+        cluster: 'Inferior Limb',
+        type: 'Augmented Unipolar Limb Lead (LL)',
+        rationale: 'Vertical unipolar lead directed straight down toward the feet (+90°). Completes the contiguous inferior diagnostic trio (II, III, aVF).'
       },
       'AVL': {
+        idx: 4,
         name: 'Lead aVL',
-        angle: '-30°',
+        badgeText: 'aVL',
+        angle: '-30° (1:30 o\'clock)',
         plane: 'Frontal (Coronal)',
         wall: 'High Lateral Basal LV Wall',
         artery: 'Left Circumflex (LCx)',
         target: 'High Lateral STEMI (Reciprocal to Inferior)',
-        neighbors: ['I', 'V5', 'V6'],
-        pos: [2.16, 1.25, 0.0],
-        badgeOffset: [0.38, 0.34, 0.0],
-        targetPos: [0.65, 0.38, -0.10],
-        color: 0x06B6D4,
-        cluster: 'lateral',
-        rationale: 'Unipolar lead viewing the high lateral LV basal wall; displays reciprocal ST depression during acute inferior STEMI.'
-      },
-      'AVF': {
-        name: 'Lead aVF',
-        angle: '+90°',
-        plane: 'Frontal (Coronal)',
-        wall: 'Inferior Diaphragmatic Wall',
-        artery: 'Right Coronary (RCA)',
-        target: 'Inferior STEMI',
-        neighbors: ['II', 'III'],
-        pos: [0.0, -2.50, 0.0],
-        badgeOffset: [0.0, -0.45, 0.0],
-        targetPos: [0.05, -1.35, 0.0],
-        color: 0x10B981,
-        cluster: 'inferior',
-        rationale: 'Vertical unipolar lead directed straight down toward the feet (+90°). Completes the contiguous inferior trio (II, III, aVF).'
+        pos: [2.20, 2.15, 0.0],
+        color: 0xeab308, // Gold/Yellow (Upper Right)
+        cluster: 'Lateral Limb',
+        type: 'Augmented Unipolar Limb Lead (LA)',
+        rationale: 'Unipolar lead viewing high lateral LV basal wall; displays reciprocal ST depression during acute inferior STEMI.'
       },
       'V1': {
+        idx: 6,
         name: 'Lead V1',
-        angle: '4th ICS Right Sternal',
+        badgeText: 'V1',
+        angle: '4th ICS Right (2:30 o\'clock)',
         plane: 'Precordial (Transverse)',
         wall: 'Anteroseptal Wall / RV Free Wall',
         artery: 'LAD (Septal Perforator Branches)',
         target: 'Septal STEMI, RBBB, Posterior MI',
-        neighbors: ['V2', 'AVR'],
-        pos: [-0.75, 0.15, 0.95],
-        badgeOffset: [-0.38, 0.38, 0.05],
-        targetPos: [-0.38, 0.12, 0.42],
-        color: 0x8B5CF6,
-        cluster: 'septal',
+        pos: [3.15, 1.25, 0.0],
+        color: 0x8b5cf6, // Purple (Right Upper)
+        cluster: 'Precordial Septal',
+        type: 'Precordial Chest Lead (4th ICS Right)',
         rationale: 'Placed at 4th intercostal space, right sternal border. Directly records RV infundibulum and anterior interventricular septum.'
       },
       'V2': {
+        idx: 7,
         name: 'Lead V2',
-        angle: '4th ICS Left Sternal',
+        badgeText: 'V2',
+        angle: '4th ICS Left (3:15 o\'clock)',
         plane: 'Precordial (Transverse)',
         wall: 'Interventricular Septum',
         artery: 'LAD (Septal Perforators)',
         target: 'Anteroseptal STEMI, LBBB',
-        neighbors: ['V1', 'V3'],
-        pos: [-0.15, 0.15, 1.05],
-        badgeOffset: [-0.05, 0.44, 0.05],
-        targetPos: [-0.08, 0.10, 0.52],
-        color: 0x8B5CF6,
-        cluster: 'septal',
+        pos: [3.35, 0.20, 0.0],
+        color: 0xec4899, // Magenta/Pink (Right Mid)
+        cluster: 'Precordial Septal',
+        type: 'Precordial Chest Lead (4th ICS Left)',
         rationale: 'Placed at 4th intercostal space, left sternal border. Highly sensitive to septal depolarization and proximal LAD occlusion.'
       },
       'V3': {
+        idx: 8,
         name: 'Lead V3',
-        angle: 'Midway V2-V4',
+        badgeText: 'V3',
+        angle: 'Midway V2-V4 (4:00 o\'clock)',
         plane: 'Precordial (Transverse)',
         wall: 'Anterior LV Wall (Mid-Myocardium)',
         artery: 'Left Anterior Descending (LAD)',
         target: 'Acute Anterior STEMI',
-        neighbors: ['V2', 'V4'],
-        pos: [0.45, -0.10, 0.98],
-        badgeOffset: [0.32, 0.40, 0.05],
-        targetPos: [0.22, -0.32, 0.45],
-        color: 0xEF4444,
-        cluster: 'anterior',
-        rationale: 'Midway between V2 and V4 over the anterior interventricular groove. Hallmark lead for diagnosing acute LAD occlusion.'
+        pos: [3.15, -0.85, 0.0],
+        color: 0xf43f5e, // Rose/Coral (Right Lower)
+        cluster: 'Precordial Anterior',
+        type: 'Precordial Chest Lead (Midway V2-V4)',
+        rationale: 'Midway between V2 and V4 over the anterior interventricular groove. Hallmark lead for diagnosing acute anterior LAD occlusion.'
       },
       'V4': {
+        idx: 9,
         name: 'Lead V4',
-        angle: '5th ICS Midclavicular',
+        badgeText: 'V4',
+        angle: '5th ICS Midclavicular (4:45 o\'clock)',
         plane: 'Precordial (Transverse)',
         wall: 'Cardiac Apex (LV True Apex)',
         artery: 'Left Anterior Descending (LAD)',
         target: 'Apical / Anterior STEMI',
-        neighbors: ['V3', 'V5'],
-        pos: [1.10, -0.32, 0.85],
-        badgeOffset: [0.45, 0.22, 0.05],
-        targetPos: [0.38, -0.98, 0.28],
-        color: 0xEF4444,
-        cluster: 'anterior',
+        pos: [2.45, -1.85, 0.0],
+        color: 0xf97316, // Orange/Coral (Bottom Right)
+        cluster: 'Precordial Anterior',
+        type: 'Precordial Chest Lead (5th ICS Midclavicular)',
         rationale: 'Placed at 5th intercostal space, midclavicular line. Directly overlies the muscular Left Ventricular apex.'
       },
       'V5': {
+        idx: 10,
         name: 'Lead V5',
-        angle: '5th ICS Ant-Axillary',
+        badgeText: 'V5',
+        angle: '5th ICS Ant-Axillary (5:30 o\'clock)',
         plane: 'Precordial (Transverse)',
         wall: 'Anterolateral LV Free Wall',
         artery: 'Left Circumflex (LCx) / LAD Diagonal',
         target: 'Anterolateral MI, LVH Strain',
-        neighbors: ['V4', 'V6', 'I', 'AVL'],
-        pos: [1.65, -0.35, 0.60],
-        badgeOffset: [0.50, 0.05, 0.02],
-        targetPos: [0.72, -0.55, 0.12],
-        color: 0x06B6D4,
-        cluster: 'lateral',
+        pos: [1.30, -2.60, 0.0],
+        color: 0x6366f1, // Indigo/Violet (Bottom Right-Center)
+        cluster: 'Precordial Lateral',
+        type: 'Precordial Chest Lead (5th ICS Ant-Axillary)',
         rationale: 'Anterior axillary line at V4 horizontal level. Bridges anterior LAD and lateral LCx vascular territories.'
       },
       'V6': {
+        idx: 11,
         name: 'Lead V6',
-        angle: '5th ICS Mid-Axillary',
+        badgeText: 'V6',
+        angle: '5th ICS Mid-Axillary (6:15 o\'clock)',
         plane: 'Precordial (Transverse)',
         wall: 'Mid-Axillary Lateral LV Free Wall',
         artery: 'Left Circumflex (LCx)',
         target: 'Lateral MI, Posterolateral Ischemia',
-        neighbors: ['V5', 'I', 'AVL'],
-        pos: [2.05, -0.35, 0.25],
-        badgeOffset: [0.52, -0.16, 0.0],
-        targetPos: [0.78, -0.35, -0.15],
-        color: 0x06B6D4,
-        cluster: 'lateral',
+        pos: [-0.20, -2.75, 0.0],
+        color: 0x3b82f6, // Sky Blue (Bottom Center-Left)
+        cluster: 'Precordial Lateral',
+        type: 'Precordial Chest Lead (5th ICS Mid-Axillary)',
         rationale: 'Midaxillary line at V4/V5 horizontal level. Records true lateral free wall electrical potential without sternal attenuation.'
       }
     };
 
-    // ST-GAT Spatial Graph Attention Adjacency Edges (Clinical Correlation Network)
+    // --------------------------------------------------------
+    // B. THE 16 VERIFIED ST-GAT SPATIAL GRAPH EDGES
+    // Defined in ecg_stgat.models.lead_graph.build_static_anatomical_adjacency()
+    // --------------------------------------------------------
     const STGAT_GRAPH_EDGES = [
-      // Inferior Cluster (RCA) - Triangle II, III, aVF
-      { from: 'II', to: 'III', color: 0x10B981, weight: 0.95 },
-      { from: 'III', to: 'AVF', color: 0x10B981, weight: 0.96 },
-      { from: 'AVF', to: 'II', color: 0x10B981, weight: 0.94 },
-      
-      // High Lateral & Lateral Network (LCx)
-      { from: 'I', to: 'AVL', color: 0x06B6D4, weight: 0.92 },
-      { from: 'I', to: 'V5', color: 0x06B6D4, weight: 0.86 },
-      { from: 'I', to: 'V6', color: 0x06B6D4, weight: 0.89 },
-      { from: 'AVL', to: 'V5', color: 0x06B6D4, weight: 0.83 },
-      { from: 'AVL', to: 'V6', color: 0x06B6D4, weight: 0.87 },
-      { from: 'V5', to: 'V6', color: 0x06B6D4, weight: 0.95 },
+      // 1. High Lateral Limb Group (Local Anatomical)
+      { from: 'I', to: 'AVL', u: 0, v: 4, category: 'lateral', label: 'High Lateral', isAnatomical: true },
 
-      // Precordial Chain (V1 -> V6)
-      { from: 'V1', to: 'V2', color: 0x8B5CF6, weight: 0.97 },
-      { from: 'V2', to: 'V3', color: 0x8B5CF6, weight: 0.94 },
-      { from: 'V3', to: 'V4', color: 0xEF4444, weight: 0.96 },
-      { from: 'V4', to: 'V5', color: 0xEF4444, weight: 0.91 },
+      // 2. aVR Reciprocal Connections (Reciprocal Axis)
+      { from: 'AVR', to: 'I', u: 3, v: 0, category: 'reciprocal', label: 'Reciprocal Axis', isAnatomical: false },
+      { from: 'AVR', to: 'II', u: 3, v: 1, category: 'reciprocal', label: 'Reciprocal Axis', isAnatomical: false },
+      { from: 'AVR', to: 'AVL', u: 3, v: 4, category: 'reciprocal', label: 'Reciprocal Axis', isAnatomical: false },
 
-      // Einthoven & Anatomical Long-Axis Cross-Connections
-      { from: 'I', to: 'II', color: 0x3B82F6, weight: 0.80 },
-      { from: 'II', to: 'V4', color: 0x3B82F6, weight: 0.84 },
-      { from: 'AVR', to: 'V1', color: 0xF59E0B, weight: 0.76 }
+      // 3. Inferior Limb Group (Inferior Wall)
+      { from: 'II', to: 'III', u: 1, v: 2, category: 'inferior', label: 'Inferior Wall', isAnatomical: false },
+      { from: 'II', to: 'AVF', u: 1, v: 5, category: 'inferior', label: 'Inferior Wall', isAnatomical: true },
+      { from: 'III', to: 'AVF', u: 2, v: 5, category: 'inferior', label: 'Inferior Wall', isAnatomical: true },
+
+      // 4. Precordial Contiguous Sequence (Chest Wall Chain)
+      { from: 'V1', to: 'V2', u: 6, v: 7, category: 'precordial', label: 'Septal Precordial', isAnatomical: true },
+      { from: 'V2', to: 'V3', u: 7, v: 8, category: 'precordial', label: 'Contiguous Precordial', isAnatomical: true },
+      { from: 'V3', to: 'V4', u: 8, v: 9, category: 'precordial', label: 'Anterior Precordial', isAnatomical: true },
+      { from: 'V4', to: 'V5', u: 9, v: 10, category: 'precordial', label: 'Contiguous Precordial', isAnatomical: true },
+      { from: 'V5', to: 'V6', u: 10, v: 11, category: 'precordial', label: 'Lateral Precordial', isAnatomical: true },
+
+      // 5. Lateral Cross-Connections (High Lateral Limb with Lateral Precordial)
+      { from: 'I', to: 'V5', u: 0, v: 10, category: 'lateral', label: 'Lateral Cross', isAnatomical: true },
+      { from: 'I', to: 'V6', u: 0, v: 11, category: 'lateral', label: 'Lateral Cross', isAnatomical: false },
+      { from: 'AVL', to: 'V5', u: 4, v: 10, category: 'lateral', label: 'Lateral Cross', isAnatomical: false },
+      { from: 'AVL', to: 'V6', u: 4, v: 11, category: 'lateral', label: 'Lateral Cross', isAnatomical: true }
     ];
 
+    // --------------------------------------------------------
+    // C. 12-LEAD VALIDATION AGAINST MODEL NODE ORDERING
+    // --------------------------------------------------------
+    function validate12LeadNodes() {
+      const REQUIRED_LEADS = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6'];
+      const presentKeys = Object.keys(LEAD_3D_DATA);
+      const normalizedPresent = presentKeys.map(k => {
+        if (k === 'AVR') return 'aVR';
+        if (k === 'AVL') return 'aVL';
+        if (k === 'AVF') return 'aVF';
+        return k;
+      });
+
+      const missing = REQUIRED_LEADS.filter(l => !normalizedPresent.includes(l));
+      const duplicates = normalizedPresent.filter((item, index) => normalizedPresent.indexOf(item) !== index);
+      const count = normalizedPresent.length;
+
+      const badge = document.getElementById("node-validation-badge");
+      if (badge) {
+        if (missing.length === 0 && duplicates.length === 0 && count === 12) {
+          badge.innerHTML = `<span class="badge-dot" style="background:#10B981;"></span> Nodes: 12/12 Verified`;
+          badge.style.background = "rgba(16, 185, 129, 0.15)";
+          badge.style.color = "#34D399";
+          badge.title = "12/12 nodes validated: I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6 (0 missing, 0 duplicates)";
+        } else {
+          badge.innerHTML = `⚠️ Nodes: ${count}/12 (Missing: ${missing.join(', ')})`;
+          badge.style.background = "rgba(239, 68, 68, 0.2)";
+          badge.style.color = "#F87171";
+        }
+      }
+      return { valid: missing.length === 0 && duplicates.length === 0 && count === 12, count, missing, duplicates };
+    }
+
+    // --------------------------------------------------------
+    // D. INITIALIZE 3D THREE.JS SCENE
+    // --------------------------------------------------------
     function initOrResizeHeart3D() {
       const container = document.getElementById("heart-3d-container");
       if (!container) return;
@@ -2009,119 +2158,124 @@
       const w = container.clientWidth || 600;
       const h = container.clientHeight || 540;
 
-      // 1. Scene & Perspective Camera Setup (Framed to show entire Hexaxial Ring and all 12 leads)
+      // 1. Perspective Camera
       heart3DScene = new THREE.Scene();
-      heart3DCamera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
-      heart3DCamera.position.set(0, 0, 8.6);
-      heart3DCamera.lookAt(0, -0.15, 0);
+      heart3DCamera = new THREE.PerspectiveCamera(38, w / h, 0.1, 100);
+      heart3DCamera.position.set(0.0, -0.15, 11.2);
+      heart3DCamera.lookAt(0.0, -0.15, 0.0);
 
-      // 2. High-DPI Antialiased WebGL Renderer
+      // 2. High-DPI Antialiased WebGL Renderer with Deep Navy Background
       heart3DRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
       heart3DRenderer.setSize(w, h);
       heart3DRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      heart3DRenderer.shadowMap.enabled = true;
-      heart3DRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      heart3DRenderer.setClearColor(0x060a12, 1);
       container.appendChild(heart3DRenderer.domElement);
 
-      // 3. Smooth OrbitControls
+      // 3. OrbitControls
       if (typeof THREE.OrbitControls !== "undefined") {
         heart3DControls = new THREE.OrbitControls(heart3DCamera, heart3DRenderer.domElement);
         heart3DControls.enableDamping = true;
-        heart3DControls.dampingFactor = 0.06;
-        heart3DControls.target.set(0, -0.15, 0);
+        heart3DControls.dampingFactor = 0.08;
+        heart3DControls.target.set(0.0, -0.15, 0.0);
         heart3DControls.minDistance = 3.5;
-        heart3DControls.maxDistance = 14.0;
+        heart3DControls.maxDistance = 18.0;
       }
 
-      // 4. Multi-Source Biological Lighting Rig
-      const ambLight = new THREE.AmbientLight(0xffffff, 0.75);
-      heart3DScene.add(ambLight);
+      // 4. Studio Medical Lighting
+      setupMedicalLighting();
 
-      const keyLight = new THREE.DirectionalLight(0xffffff, 1.25);
-      keyLight.position.set(6, 8, 8);
-      heart3DScene.add(keyLight);
-
-      const rimLight = new THREE.DirectionalLight(0x38BDF8, 0.85);
-      rimLight.position.set(-7, -2, -5);
-      heart3DScene.add(rimLight);
-
-      const bottomWarm = new THREE.DirectionalLight(0xF43F5E, 0.45);
-      bottomWarm.position.set(0, -8, 5);
-      heart3DScene.add(bottomWarm);
-
-      const internalHeartGlow = new THREE.PointLight(0xEF4444, 1.6, 10);
-      internalHeartGlow.position.set(0, 0, 0);
-      heart3DScene.add(internalHeartGlow);
-
-      // 5. MASTER SCENE GRAPH GROUPS
+      // 5. Scene Graph Groups
       heartMeshGroup = new THREE.Group();
       heart3DScene.add(heartMeshGroup);
 
       buildAnatomicalHeart();
       build12LeadNodes();
       buildSTGATGraphEdges();
-      buildMyocardialProjections();
-      buildReferencePlanes();
+      buildCardiacConductionSystem();
+      buildGraphTravellingPulses();
 
-      // 6. Raycaster for Interactive 3D Lead Clicking
+      // 6. Raycasting for Lead Clicking
       setupLeadRaycasting(container);
 
-      // 7. Start Animation Loop
+      // 7. Validate Nodes
+      validate12LeadNodes();
+
+      // 8. Start Animation Loop
       isHeart3DInitialized = true;
       animateHeart3D();
       selectLead3D('II');
+
+      // 9. Draw Synchronized 2D Graph
+      drawSynchronizedLeadGraph();
+
+      // 10. Update attention if already available
+      if (latestGATAttentionMatrix) {
+        update3DGraphAttention(latestGATAttentionMatrix, latestGATAttentionHeads, latestModelName, latestLeadWeights);
+      }
     }
 
-    // ========================================================
-    // BUILD ORGANIC PARAMETRIC ANATOMICAL MYOCARDIUM & VESSELS
-    // ========================================================
+    function setupMedicalLighting() {
+      // Soft ambient light
+      const ambLight = new THREE.AmbientLight(0xffffff, 0.90);
+      heart3DScene.add(ambLight);
+
+      // Key light from superior-anterior right (creates glossy anatomical sheen)
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.15);
+      keyLight.position.set(4, 6, 7);
+      heart3DScene.add(keyLight);
+
+      // Fill light from anterior left (warm tint)
+      const fillLight = new THREE.DirectionalLight(0xfce7f3, 0.60);
+      fillLight.position.set(-4, 2, 5);
+      heart3DScene.add(fillLight);
+
+      // Rim light from posterior-inferior
+      const rimLight = new THREE.DirectionalLight(0x93c5fd, 0.40);
+      rimLight.position.set(0, -5, -4);
+      heart3DScene.add(rimLight);
+    }
+
+    // --------------------------------------------------------
+    // E. BUILD ANATOMICAL HEART WITH REFERENCE IMAGE COLORS:
+    // Peach-pink Myocardium, Crimson Aorta, Deep Venous Blue Pulmonary/SVC
+    // --------------------------------------------------------
     function buildAnatomicalHeart() {
-      ventriclesGroup = new THREE.Group();
       atriaGroup = new THREE.Group();
       vesselsGroup = new THREE.Group();
       coronaryGroup = new THREE.Group();
-      conductionGroup = new THREE.Group();
 
-      heartMeshGroup.add(ventriclesGroup);
       heartMeshGroup.add(atriaGroup);
       heartMeshGroup.add(vesselsGroup);
       heartMeshGroup.add(coronaryGroup);
-      heartMeshGroup.add(conductionGroup);
 
-      // (A) ORGANIC PARAMETRIC VENTRICLES (LV + RV + APEX + SULCUS)
-      // Sculpted volumetric cardiac mesh with outward normals and anatomical modulation
-      const Ny = 40;
+      // (A) VENTRICULAR MYOCARDIUM (Peach-Pink Cardiac Tissue)
+      const Ny = 46;
       const Ntheta = 56;
       const vertices = [];
       const indices = [];
       const uvs = [];
 
       for (let i = 0; i <= Ny; i++) {
-        const v = i / Ny; // 0 at base (superior), 1 at apex (inferior)
-        const y = 0.65 - v * 2.10; // y from +0.65 to -1.45
-        // Cardiac axis curvature: apex tilts towards patient left (+X) and anterior (+Z)
-        const cx = 0.52 * Math.pow(v, 1.2);
-        const cz = 0.24 * v;
-        const baseR = 1.05 * Math.sqrt(Math.max(0.001, 1.0 - Math.pow(v, 1.8))) * (1 + 0.12 * Math.sin(v * Math.PI));
+        const v = i / Ny; // 0 at base (+0.65), 1 at apex (-1.35)
+        const y = 0.65 - v * 2.0;
+
+        // Realistic cardiac axis tilt: apex points towards patient left (+X) and anterior (+Z)
+        const cx = 0.42 * Math.pow(v, 1.25);
+        const cz = 0.18 * v;
+        const baseR = 1.05 * Math.sqrt(Math.max(0.001, 1.0 - Math.pow(v, 1.75))) * (1 + 0.10 * Math.sin(v * Math.PI));
 
         for (let j = 0; j <= Ntheta; j++) {
           const u = j / Ntheta;
           const theta = u * Math.PI * 2;
           let rMod = 1.0;
 
-          // Anatomical Modulation:
-          // 1. Right Ventricle muscular bulge on anterior-right
-          if (v < 0.85) {
-            rMod += 0.24 * Math.max(0, Math.sin(theta - 0.15 * Math.PI)) * (1.0 - v * 0.85);
-            // 2. Anterior Interventricular Sulcus groove (where LAD courses)
+          // Right Ventricle muscular bulge on anterior-right
+          if (v < 0.82) {
+            rMod += 0.20 * Math.max(0, Math.sin(theta - 0.15 * Math.PI)) * (1.0 - v * 0.85);
+            // Anterior Interventricular Sulcus groove (LAD pathway)
             const grooveDist = Math.abs(theta - 0.38 * Math.PI);
-            if (grooveDist < 0.35) {
-              rMod -= 0.12 * Math.cos((grooveDist / 0.35) * (Math.PI / 2));
-            }
-            // 3. Posterior Interventricular Sulcus groove (where PDA courses)
-            const grooveDistPost = Math.abs(theta - 1.45 * Math.PI);
-            if (grooveDistPost < 0.30) {
-              rMod -= 0.10 * Math.cos((grooveDistPost / 0.30) * (Math.PI / 2));
+            if (grooveDist < 0.32) {
+              rMod -= 0.09 * Math.cos((grooveDist / 0.32) * (Math.PI / 2));
             }
           }
 
@@ -2133,7 +2287,6 @@
         }
       }
 
-      // OUTWARD-FACING TRIANGLE WINDING
       for (let i = 0; i < Ny; i++) {
         for (let j = 0; j < Ntheta; j++) {
           const a = i * (Ntheta + 1) + j;
@@ -2151,280 +2304,184 @@
       lvGeo.setIndex(indices);
       lvGeo.computeVertexNormals();
 
+      // PEACH-PINK MYOCARDIAL SHADER (Matching user reference image)
       const lvMat = new THREE.MeshPhongMaterial({
-        color: 0x9E1C24,
-        emissive: 0x38060A,
-        specular: 0xFCA5A5,
-        shininess: 50,
+        color: 0xdf707c,       // Warm light peach-pink myocardium
+        emissive: 0x2c0d15,    // Subtle physiological internal glow
+        specular: 0xffe4e8,    // Crisp specular highlight
+        shininess: 55,
         side: THREE.DoubleSide
       });
       ventriclesMesh = new THREE.Mesh(lvGeo, lvMat);
-      ventriclesGroup.add(ventriclesMesh);
+      ventriclesMesh.name = "MYOCARDIUM";
+      heartMeshGroup.add(ventriclesMesh);
 
-      // (B) RIGHT ATRIUM (RA) & LEFT ATRIUM (LA) WITH AURICLES
+      // (B) RIGHT ATRIUM & LEFT ATRIUM (Warm Peach-Pink)
       const atriaMat = new THREE.MeshPhongMaterial({
-        color: 0x881337,
-        emissive: 0x2A060E,
-        specular: 0xF43F5E,
-        shininess: 40,
+        color: 0xdb6576,
+        emissive: 0x260a12,
+        specular: 0xffe4e8,
+        shininess: 50,
         side: THREE.DoubleSide
       });
 
-      // Right Atrium at superior right
-      const raGeo = new THREE.SphereGeometry(0.58, 24, 20);
-      raGeo.scale(1.0, 0.90, 0.95);
+      // Right Atrium (superior right)
+      const raGeo = new THREE.SphereGeometry(0.56, 24, 20);
+      raGeo.scale(1.0, 0.90, 0.92);
       const raMesh = new THREE.Mesh(raGeo, atriaMat);
-      raMesh.position.set(-0.65, 0.85, -0.05);
+      raMesh.position.set(-0.62, 0.82, -0.05);
       atriaGroup.add(raMesh);
 
-      // Right Auricle (dog's-ear shaped atrial appendage curving over aortic root)
-      const raAuricleGeo = new THREE.ConeGeometry(0.28, 0.52, 16);
-      raAuricleGeo.rotateZ(Math.PI / 3.2);
+      // Right Auricle
+      const raAuricleGeo = new THREE.ConeGeometry(0.25, 0.45, 16);
+      raAuricleGeo.rotateZ(Math.PI / 3.4);
       const raAuricle = new THREE.Mesh(raAuricleGeo, atriaMat);
-      raAuricle.position.set(-0.42, 0.80, 0.35);
+      raAuricle.position.set(-0.40, 0.78, 0.32);
       atriaGroup.add(raAuricle);
 
-      // Left Atrium (posterior-superior)
+      // Left Atrium (superior posterior)
       const laMesh = new THREE.Mesh(raGeo.clone(), atriaMat.clone());
-      laMesh.position.set(0.50, 0.82, -0.32);
+      laMesh.position.set(0.48, 0.80, -0.28);
       atriaGroup.add(laMesh);
 
-      // Left Auricle curving anteriorly below pulmonary trunk
+      // Left Auricle
       const laAuricle = new THREE.Mesh(raAuricleGeo.clone(), atriaMat.clone());
-      laAuricle.position.set(0.68, 0.75, 0.15);
+      laAuricle.position.set(0.64, 0.72, 0.14);
       laAuricle.rotation.z = -Math.PI / 3.8;
       atriaGroup.add(laAuricle);
 
-      // (C) ASCENDING AORTA & MAJESTIC AORTIC ARCH (With 3 Supra-Aortic Trunks)
+      // (C) ASCENDING AORTA & AORTIC ARCH (Crimson / Arterial Red - Reference Photo)
       const aortaCurve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0.05, 0.55, 0.05),
-        new THREE.Vector3(0.02, 1.25, 0.10),
-        new THREE.Vector3(0.25, 1.68, -0.05),
-        new THREE.Vector3(0.55, 1.45, -0.35),
-        new THREE.Vector3(0.60, 0.70, -0.50),
-        new THREE.Vector3(0.60, -0.30, -0.55)
+        new THREE.Vector3(0.05, 0.52, 0.05),
+        new THREE.Vector3(0.02, 1.18, 0.10),
+        new THREE.Vector3(0.24, 1.58, -0.05),
+        new THREE.Vector3(0.52, 1.38, -0.32),
+        new THREE.Vector3(0.58, 0.68, -0.45),
+        new THREE.Vector3(0.58, -0.25, -0.50)
       ]);
-      const aortaGeo = new THREE.TubeGeometry(aortaCurve, 44, 0.18, 18, false);
+      const aortaGeo = new THREE.TubeGeometry(aortaCurve, 36, 0.17, 16, false);
       const aortaMat = new THREE.MeshPhongMaterial({
-        color: 0xDC2626,
-        emissive: 0x450A0A,
-        specular: 0xFECDD3,
+        color: 0xd94350,       // Arterial crimson-red matching reference photo
+        emissive: 0x3b0b13,
+        specular: 0xffb8c2,
         shininess: 70,
         side: THREE.DoubleSide
       });
-      aortaMesh = new THREE.Mesh(aortaGeo, aortaMat);
+      const aortaMesh = new THREE.Mesh(aortaGeo, aortaMat);
       vesselsGroup.add(aortaMesh);
 
-      // 3 Supra-Aortic Branches: Brachiocephalic, Carotid, Subclavian
-      const branchGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.42, 14);
+      // 3 Supra-Aortic Branches (Brachiocephalic, Left Common Carotid, Left Subclavian)
+      const branchGeo = new THREE.CylinderGeometry(0.046, 0.046, 0.38, 14);
       const b1 = new THREE.Mesh(branchGeo, aortaMat);
-      b1.position.set(0.14, 1.76, -0.08);
+      b1.position.set(0.14, 1.66, -0.08);
       b1.rotation.z = -0.22;
       vesselsGroup.add(b1);
 
       const b2 = new THREE.Mesh(branchGeo, aortaMat);
-      b2.position.set(0.32, 1.72, -0.20);
+      b2.position.set(0.30, 1.62, -0.18);
       b2.rotation.z = -0.30;
       vesselsGroup.add(b2);
 
       const b3 = new THREE.Mesh(branchGeo, aortaMat);
-      b3.position.set(0.48, 1.62, -0.32);
+      b3.position.set(0.45, 1.52, -0.28);
       b3.rotation.z = -0.40;
       vesselsGroup.add(b3);
 
-      // (D) PULMONARY TRUNK & BIFURCATION (Crossing in Front of Aorta)
+      // (D) PULMONARY TRUNK & BIFURCATION (Deep Venous Blue - Reference Photo)
       const pulmCurve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-0.22, 0.48, 0.42),
-        new THREE.Vector3(-0.06, 0.85, 0.35),
-        new THREE.Vector3(0.10, 1.05, 0.20)
+        new THREE.Vector3(-0.20, 0.46, 0.38),
+        new THREE.Vector3(-0.06, 0.80, 0.30),
+        new THREE.Vector3(0.10, 1.00, 0.16)
       ]);
-      const pulmGeo = new THREE.TubeGeometry(pulmCurve, 28, 0.165, 16, false);
+      const pulmGeo = new THREE.TubeGeometry(pulmCurve, 24, 0.155, 14, false);
       const pulmMat = new THREE.MeshPhongMaterial({
-        color: 0x1D4ED8,
-        emissive: 0x0F172A,
-        specular: 0x93C5FD,
-        shininess: 60,
+        color: 0x2563eb,       // Deep venous blue matching reference photo
+        emissive: 0x081845,
+        specular: 0x93c5fd,
+        shininess: 65,
         side: THREE.DoubleSide
       });
-      pulmonaryMesh = new THREE.Mesh(pulmGeo, pulmMat);
+      const pulmonaryMesh = new THREE.Mesh(pulmGeo, pulmMat);
       vesselsGroup.add(pulmonaryMesh);
 
-      // Left & Right Pulmonary Arteries Bifurcation under the Arch
-      const rpaGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.75, 14);
+      // Right and Left Pulmonary Arteries
+      const rpaGeo = new THREE.CylinderGeometry(0.085, 0.085, 0.68, 12);
       rpaGeo.rotateZ(Math.PI / 2);
       const rpa = new THREE.Mesh(rpaGeo, pulmMat);
-      rpa.position.set(-0.42, 1.05, 0.04);
+      rpa.position.set(-0.38, 1.00, 0.04);
       vesselsGroup.add(rpa);
 
       const lpa = new THREE.Mesh(rpaGeo.clone(), pulmMat);
-      lpa.position.set(0.45, 1.05, -0.05);
+      lpa.position.set(0.42, 1.00, -0.05);
       vesselsGroup.add(lpa);
 
-      // (E) SUPERIOR & INFERIOR VENA CAVA (SVC & IVC)
-      const venousMat = new THREE.MeshPhongMaterial({ color: 0x2563EB, emissive: 0x1E3A8A, shininess: 45, side: THREE.DoubleSide });
-      const svcGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.85, 16);
-      const svcMesh = new THREE.Mesh(svcGeo, venousMat);
-      svcMesh.position.set(-0.72, 1.45, -0.08);
+      // (E) SUPERIOR & INFERIOR VENA CAVA (SVC & IVC - Deep Venous Blue)
+      const svcGeo = new THREE.CylinderGeometry(0.13, 0.13, 0.80, 14);
+      const svcMesh = new THREE.Mesh(svcGeo, pulmMat);
+      svcMesh.position.set(-0.68, 1.38, -0.08);
       vesselsGroup.add(svcMesh);
 
-      const ivcGeo = new THREE.CylinderGeometry(0.13, 0.13, 0.65, 16);
-      const ivcMesh = new THREE.Mesh(ivcGeo, venousMat);
-      ivcMesh.position.set(-0.72, -0.40, -0.18);
+      const ivcGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.60, 14);
+      const ivcMesh = new THREE.Mesh(ivcGeo, pulmMat);
+      ivcMesh.position.set(-0.68, -0.38, -0.16);
       vesselsGroup.add(ivcMesh);
 
-      // 4 Pulmonary Veins into Left Atrium
-      const pvGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.40, 12);
-      pvGeo.rotateZ(Math.PI / 2);
-      const pv1 = new THREE.Mesh(pvGeo, venousMat);
-      pv1.position.set(0.82, 0.88, -0.35);
-      vesselsGroup.add(pv1);
-      const pv2 = new THREE.Mesh(pvGeo, venousMat);
-      pv2.position.set(0.82, 0.60, -0.35);
-      vesselsGroup.add(pv2);
-
-      // (F) CORONARY ARTERY TREE (LAD, LCx, RCA - Golden Glowing Vessels)
-      const coronaryMat = new THREE.MeshPhongMaterial({
-        color: 0xF59E0B,
-        emissive: 0xB45309,
-        emissiveIntensity: 0.75,
-        specular: 0xFEF08A,
-        shininess: 80
+      // (F) BRANCHING CORONARY ARTERIES (RED) & CARDIAC VEINS (BLUE)
+      const arteryMat = new THREE.MeshPhongMaterial({
+        color: 0xdc2626,       // Arterial red
+        emissive: 0x380505,
+        specular: 0xfca5a5,
+        shininess: 45
+      });
+      const veinMat = new THREE.MeshPhongMaterial({
+        color: 0x2563eb,       // Venous blue
+        emissive: 0x061436,
+        specular: 0x93c5fd,
+        shininess: 45
       });
 
-      // 1. Left Anterior Descending (LAD) down the anterior interventricular sulcus
+      // LAD Artery down anterior sulcus to apex
       const ladCurve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-0.02, 0.55, 0.46),
-        new THREE.Vector3(-0.08, 0.24, 0.58),
-        new THREE.Vector3(0.02, -0.25, 0.55),
-        new THREE.Vector3(0.25, -0.85, 0.40),
-        new THREE.Vector3(0.42, -1.35, 0.24),
-        new THREE.Vector3(0.48, -1.48, 0.25)
+        new THREE.Vector3(-0.02, 0.48, 0.48),
+        new THREE.Vector3(0.08, 0.15, 0.68),
+        new THREE.Vector3(0.18, -0.22, 0.74),
+        new THREE.Vector3(0.28, -0.65, 0.65),
+        new THREE.Vector3(0.38, -1.15, 0.38)
       ]);
-      const ladGeo = new THREE.TubeGeometry(ladCurve, 38, 0.040, 12, false);
-      ladMesh = new THREE.Mesh(ladGeo, coronaryMat);
+      const ladMesh = new THREE.Mesh(new THREE.TubeGeometry(ladCurve, 32, 0.022, 10, false), arteryMat);
       coronaryGroup.add(ladMesh);
 
-      // LAD Diagonal Branches (D1, D2) feeding anterior/lateral free wall
+      // Diagonal Branches
       const d1Curve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-0.08, 0.24, 0.58),
-        new THREE.Vector3(0.22, 0.02, 0.54),
-        new THREE.Vector3(0.45, -0.18, 0.42)
+        new THREE.Vector3(0.12, 0.05, 0.70),
+        new THREE.Vector3(0.32, -0.15, 0.72),
+        new THREE.Vector3(0.55, -0.38, 0.60)
       ]);
-      coronaryGroup.add(new THREE.Mesh(new THREE.TubeGeometry(d1Curve, 16, 0.028, 8, false), coronaryMat));
+      coronaryGroup.add(new THREE.Mesh(new THREE.TubeGeometry(d1Curve, 18, 0.015, 8, false), arteryMat));
 
       const d2Curve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0.02, -0.25, 0.55),
-        new THREE.Vector3(0.38, -0.52, 0.38),
-        new THREE.Vector3(0.56, -0.70, 0.25)
+        new THREE.Vector3(0.22, -0.40, 0.71),
+        new THREE.Vector3(0.42, -0.60, 0.58)
       ]);
-      coronaryGroup.add(new THREE.Mesh(new THREE.TubeGeometry(d2Curve, 16, 0.025, 8, false), coronaryMat));
+      coronaryGroup.add(new THREE.Mesh(new THREE.TubeGeometry(d2Curve, 14, 0.013, 8, false), arteryMat));
 
-      // 2. Left Circumflex (LCx) wrapping around left AV groove
-      const lcxCurve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-0.02, 0.55, 0.46),
-        new THREE.Vector3(0.35, 0.50, 0.35),
-        new THREE.Vector3(0.72, 0.40, 0.02),
-        new THREE.Vector3(0.78, 0.15, -0.25),
-        new THREE.Vector3(0.62, -0.30, -0.40)
+      // Great Cardiac Vein (Blue vein running alongside LAD)
+      const veinCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.04, 0.42, 0.50),
+        new THREE.Vector3(0.14, 0.10, 0.69),
+        new THREE.Vector3(0.24, -0.25, 0.73),
+        new THREE.Vector3(0.32, -0.68, 0.63)
       ]);
-      coronaryGroup.add(new THREE.Mesh(new THREE.TubeGeometry(lcxCurve, 28, 0.035, 10, false), coronaryMat));
-
-      // LCx Obtuse Marginal (OM1) branch
-      const om1Curve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0.72, 0.40, 0.02),
-        new THREE.Vector3(0.82, -0.18, 0.06),
-        new THREE.Vector3(0.78, -0.65, 0.12)
-      ]);
-      coronaryGroup.add(new THREE.Mesh(new THREE.TubeGeometry(om1Curve, 18, 0.026, 8, false), coronaryMat));
-
-      // 3. Right Coronary Artery (RCA) down the right AV sulcus
-      const rcaCurve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-0.28, 0.50, 0.32),
-        new THREE.Vector3(-0.65, 0.30, 0.25),
-        new THREE.Vector3(-0.78, -0.12, 0.08),
-        new THREE.Vector3(-0.62, -0.70, -0.16),
-        new THREE.Vector3(-0.22, -1.05, -0.20)
-      ]);
-      coronaryGroup.add(new THREE.Mesh(new THREE.TubeGeometry(rcaCurve, 34, 0.038, 10, false), coronaryMat));
-
-      // (G) CARDIAC ELECTRICAL CONDUCTION SYSTEM NETWORK
-      const conductionMat = new THREE.MeshPhongMaterial({
-        color: 0x38BDF8,
-        emissive: 0x0284C7,
-        emissiveIntensity: 1.1,
-        specular: 0xE0F2FE,
-        shininess: 90
-      });
-
-      // SA Node (Yellow beacon at SVC/RA junction)
-      const saNodeGeo = new THREE.SphereGeometry(0.095, 16, 16);
-      const saNodeMat = new THREE.MeshPhongMaterial({ color: 0xFACC15, emissive: 0xEAB308, emissiveIntensity: 1.8 });
-      const saNode = new THREE.Mesh(saNodeGeo, saNodeMat);
-      saNode.position.set(-0.72, 1.15, -0.05);
-      conductionGroup.add(saNode);
-
-      // AV Node (Cyan beacon at interatrial septum base)
-      const avNodeGeo = new THREE.SphereGeometry(0.090, 16, 16);
-      const avNodeMat = new THREE.MeshPhongMaterial({ color: 0x06B6D4, emissive: 0x0891B2, emissiveIntensity: 1.8 });
-      const avNode = new THREE.Mesh(avNodeGeo, avNodeMat);
-      avNode.position.set(-0.08, 0.45, 0.12);
-      conductionGroup.add(avNode);
-
-      // 3 Internodal Tracts (Anterior Bachmann, Middle Wenckebach, Posterior Thorel)
-      const bachmannCurve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-0.72, 1.15, -0.05),
-        new THREE.Vector3(-0.32, 0.82, 0.24),
-        new THREE.Vector3(-0.08, 0.45, 0.12)
-      ]);
-      conductionGroup.add(new THREE.Mesh(new THREE.TubeGeometry(bachmannCurve, 20, 0.024, 8, false), conductionMat));
-
-      const wenckCurve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-0.72, 1.15, -0.05),
-        new THREE.Vector3(-0.40, 0.70, 0.03),
-        new THREE.Vector3(-0.08, 0.45, 0.12)
-      ]);
-      conductionGroup.add(new THREE.Mesh(new THREE.TubeGeometry(wenckCurve, 20, 0.020, 8, false), conductionMat));
-
-      // Bundle of His & Left/Right Bundle Branches down the septum to apex
-      const bundleHisCurve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-0.08, 0.45, 0.12),
-        new THREE.Vector3(-0.05, 0.20, 0.16),
-        new THREE.Vector3(0.06, -0.22, 0.18),
-        new THREE.Vector3(0.18, -0.72, 0.20),
-        new THREE.Vector3(0.28, -1.15, 0.18)
-      ]);
-      conductionGroup.add(new THREE.Mesh(new THREE.TubeGeometry(bundleHisCurve, 30, 0.028, 8, false), conductionMat));
-
-      // Right Bundle Branch (Sweeping down toward RV wall & moderator band)
-      const rbbCurve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0.06, -0.22, 0.18),
-        new THREE.Vector3(-0.18, -0.55, 0.25),
-        new THREE.Vector3(-0.40, -0.80, 0.28),
-        new THREE.Vector3(-0.48, -0.40, 0.22)
-      ]);
-      conductionGroup.add(new THREE.Mesh(new THREE.TubeGeometry(rbbCurve, 22, 0.020, 6, false), conductionMat));
-
-      // Left Bundle Branch (LBB Anterior & Posterior Fascicles)
-      const lbbAntCurve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0.18, -0.72, 0.20),
-        new THREE.Vector3(0.48, -0.80, 0.20),
-        new THREE.Vector3(0.65, -0.50, 0.14)
-      ]);
-      conductionGroup.add(new THREE.Mesh(new THREE.TubeGeometry(lbbAntCurve, 18, 0.020, 6, false), conductionMat));
-
-      const lbbPostCurve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0.18, -0.72, 0.20),
-        new THREE.Vector3(0.52, -0.75, -0.10),
-        new THREE.Vector3(0.70, -0.35, -0.18)
-      ]);
-      conductionGroup.add(new THREE.Mesh(new THREE.TubeGeometry(lbbPostCurve, 18, 0.020, 6, false), conductionMat));
+      coronaryGroup.add(new THREE.Mesh(new THREE.TubeGeometry(veinCurve, 24, 0.018, 8, false), veinMat));
     }
 
-    // ========================================================
-    // BUILD 12 LEAD NODES IN 3D SPACE (CRISP, LEGIBLE BADGES)
-    // ========================================================
+    // --------------------------------------------------------
+    // F. BUILD 12 ECG LEAD NODES WITH CIRCULAR BADGES
+    // Exactly matches the circular ring badges from the reference image
+    // --------------------------------------------------------
     function build12LeadNodes() {
       leadNodesGroup = new THREE.Group();
+      leadNodesGroup.name = "LEAD_NODES_GROUP";
       heart3DScene.add(leadNodesGroup);
 
       const keys = Object.keys(LEAD_3D_DATA);
@@ -2432,49 +2489,25 @@
         const d = LEAD_3D_DATA[key];
         const group = new THREE.Group();
         group.name = `LEAD_${key}`;
+        group.userData = { leadKey: key, data: d };
 
-        // (a) Outer Glowing Halo Ring
-        const haloGeo = new THREE.TorusGeometry(0.14, 0.020, 14, 32);
-        haloGeo.rotateX(Math.PI / 2);
-        const haloMat = new THREE.MeshBasicMaterial({ color: d.color, transparent: true, opacity: 0.90 });
-        const halo = new THREE.Mesh(haloGeo, haloMat);
-        halo.position.set(...d.pos);
-        group.add(halo);
-
-        // (b) Metallic Core Electrode Sphere
-        const sphGeo = new THREE.SphereGeometry(0.095, 20, 20);
+        // 1. Small Center Electrode Core Sphere
+        const sphGeo = new THREE.SphereGeometry(0.075, 18, 18);
         const sphMat = new THREE.MeshPhongMaterial({
           color: d.color,
           emissive: d.color,
-          emissiveIntensity: 0.75,
-          specular: 0xFFFFFF,
-          shininess: 80
+          emissiveIntensity: 0.35,
+          specular: 0xffffff,
+          shininess: 45
         });
         const sph = new THREE.Mesh(sphGeo, sphMat);
         sph.position.set(...d.pos);
+        sph.name = `CORE_${key}`;
         group.add(sph);
 
-        // (c) Connecting stem line from electrode to badge
-        const badgePos = [
-          d.pos[0] + d.badgeOffset[0],
-          d.pos[1] + d.badgeOffset[1],
-          d.pos[2] + d.badgeOffset[2]
-        ];
-        const stemGeo = new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(...d.pos),
-          new THREE.Vector3(...badgePos)
-        ]);
-        const stem = new THREE.Line(stemGeo, new THREE.LineBasicMaterial({
-          color: d.color,
-          transparent: true,
-          opacity: 0.55,
-          linewidth: 2
-        }));
-        group.add(stem);
-
-        // (d) Crisp Billboard Text Badge Sprite (High DPI, Clearly Legible)
+        // 2. Crisp Circular Billboard Badge Sprite (Matching Reference Image)
         const sprite = createLeadBadgeSprite(key, d);
-        sprite.position.set(...badgePos);
+        sprite.position.set(...d.pos);
         sprite.name = `BADGE_${key}`;
         group.add(sprite);
 
@@ -2482,483 +2515,727 @@
       });
     }
 
-    // ========================================================
-    // BUILD ST-GAT SPATIAL GRAPH EDGES (LUMINOUS 3D CONDUITS)
-    // ========================================================
-    function buildSTGATGraphEdges() {
-      graphEdgesGroup = new THREE.Group();
-      heart3DScene.add(graphEdgesGroup);
-
-      STGAT_GRAPH_EDGES.forEach((edge, idx) => {
-        const p1 = new THREE.Vector3(...LEAD_3D_DATA[edge.from].pos);
-        const p2 = new THREE.Vector3(...LEAD_3D_DATA[edge.to].pos);
-
-        // Volumetric curved 3D arch curving outward away from heart center to prevent clipping
-        const mid = p1.clone().add(p2).multiplyScalar(0.5);
-        const dist = p1.distanceTo(p2);
-        const outwardDir = mid.clone().normalize();
-        mid.add(outwardDir.multiplyScalar(Math.min(0.45, dist * 0.22)));
-
-        const curve = new THREE.CatmullRomCurve3([p1, mid, p2]);
-        const tubeGeo = new THREE.TubeGeometry(curve, 32, 0.036, 12, false);
-        const tubeMat = new THREE.MeshPhongMaterial({
-          color: edge.color,
-          emissive: edge.color,
-          emissiveIntensity: 0.85,
-          transparent: true,
-          opacity: 0.85,
-          shininess: 70
-        });
-        const edgeMesh = new THREE.Mesh(tubeGeo, tubeMat);
-        edgeMesh.name = `EDGE_${edge.from}_${edge.to}`;
-        edgeMesh.userData = { from: edge.from, to: edge.to, color: edge.color };
-        graphEdgesGroup.add(edgeMesh);
-
-        // 2 Animated Traveling Glowing Photons along the Edge (Message-Passing Dynamics)
-        for (let pIdx = 0; pIdx < 2; pIdx++) {
-          const photonGroup = new THREE.Group();
-
-          // Bright white center core
-          const coreGeo = new THREE.SphereGeometry(0.048, 12, 12);
-          const coreMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
-          photonGroup.add(new THREE.Mesh(coreGeo, coreMat));
-
-          // Outer glowing halo
-          const haloGeo = new THREE.SphereGeometry(0.075, 12, 12);
-          const haloMat = new THREE.MeshBasicMaterial({ color: edge.color, transparent: true, opacity: 0.65 });
-          photonGroup.add(new THREE.Mesh(haloGeo, haloMat));
-
-          photonGroup.userData = {
-            curve: curve,
-            speed: 0.0055 + (idx % 3) * 0.0025,
-            progress: ((idx * 0.22) + (pIdx * 0.50)) % 1.0
-          };
-          graphEdgesGroup.add(photonGroup);
-        }
-      });
-    }
-
-    // ========================================================
-    // BUILD MYOCARDIAL PROJECTIONS (LEAD-TO-HEART RAYS & SPOTS)
-    // ========================================================
-    function buildMyocardialProjections() {
-      projectionsGroup = new THREE.Group();
-      heart3DScene.add(projectionsGroup);
-
-      const keys = Object.keys(LEAD_3D_DATA);
-      keys.forEach(key => {
-        const d = LEAD_3D_DATA[key];
-        const pLead = new THREE.Vector3(...d.pos);
-        const pTarget = new THREE.Vector3(...d.targetPos);
-
-        // (a) Directed Projection Vector Laser Ray
-        const lineGeo = new THREE.BufferGeometry().setFromPoints([pLead, pTarget]);
-        const lineMat = new THREE.LineDashedMaterial({
-          color: d.color,
-          dashSize: 0.12,
-          gapSize: 0.07,
-          transparent: true,
-          opacity: 0.70,
-          linewidth: 2.0
-        });
-        const line = new THREE.Line(lineGeo, lineMat);
-        line.computeLineDistances();
-        line.name = `PROJ_LINE_${key}`;
-        projectionsGroup.add(line);
-
-        // (b) Target Myocardial Bullseye Hotspot on Epicardium
-        const spotGroup = new THREE.Group();
-        spotGroup.position.copy(pTarget);
-        spotGroup.lookAt(pLead);
-        spotGroup.name = `PROJ_SPOT_${key}`;
-
-        // Outer concentric ring
-        const outerRingGeo = new THREE.RingGeometry(0.07, 0.12, 24);
-        const ringMat = new THREE.MeshBasicMaterial({
-          color: d.color,
-          side: THREE.DoubleSide,
-          transparent: true,
-          opacity: 0.90
-        });
-        spotGroup.add(new THREE.Mesh(outerRingGeo, ringMat));
-
-        // Inner solid core beacon
-        const beaconGeo = new THREE.SphereGeometry(0.05, 16, 16);
-        const beaconMat = new THREE.MeshPhongMaterial({
-          color: d.color,
-          emissive: d.color,
-          emissiveIntensity: 1.5
-        });
-        spotGroup.add(new THREE.Mesh(beaconGeo, beaconMat));
-
-        projectionsGroup.add(spotGroup);
-      });
-    }
-
-    // ========================================================
-    // BUILD REFERENCE PLANES (HEXAXIAL COMPASS & PRECORDIAL ARCS)
-    // ========================================================
-    function buildReferencePlanes() {
-      referencePlanesGroup = new THREE.Group();
-      heart3DScene.add(referencePlanesGroup);
-
-      // (A) Frontal Hexaxial Compass Ring (Radius = 2.50 in Coronal XY Plane)
-      const hexRingGeo = new THREE.TorusGeometry(2.50, 0.015, 14, 80);
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0x3B82F6, transparent: true, opacity: 0.40 });
-      const hexRing = new THREE.Mesh(hexRingGeo, ringMat);
-      referencePlanesGroup.add(hexRing);
-
-      // Degree Angle Ticks at 30° Intervals around Hexaxial Ring
-      for (let deg = 0; deg < 360; deg += 30) {
-        const rad = (deg * Math.PI) / 180;
-        const x1 = Math.cos(rad) * 2.42;
-        const y1 = Math.sin(rad) * 2.42;
-        const x2 = Math.cos(rad) * 2.58;
-        const y2 = Math.sin(rad) * 2.58;
-        const tickGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x1, y1, 0), new THREE.Vector3(x2, y2, 0)]);
-        const tickLine = new THREE.Line(tickGeo, new THREE.LineBasicMaterial({ color: 0x60A5FA, transparent: true, opacity: 0.50 }));
-        referencePlanesGroup.add(tickLine);
-      }
-
-      // (B) Einthoven's Equilateral Triangle connecting aVR (-150°), aVL (-30°), aVF (+90°)
-      const raPos = new THREE.Vector3(...LEAD_3D_DATA['AVR'].pos);
-      const laPos = new THREE.Vector3(...LEAD_3D_DATA['AVL'].pos);
-      const llPos = new THREE.Vector3(...LEAD_3D_DATA['AVF'].pos);
-
-      const triGeo = new THREE.BufferGeometry().setFromPoints([raPos, laPos, llPos, raPos]);
-      const triMat = new THREE.LineDashedMaterial({
-        color: 0x93C5FD,
-        dashSize: 0.14,
-        gapSize: 0.08,
-        transparent: true,
-        opacity: 0.35
-      });
-      const einthovenTri = new THREE.Line(triGeo, triMat);
-      einthovenTri.computeLineDistances();
-      referencePlanesGroup.add(einthovenTri);
-
-      // (C) Precordial Horizontal Ribcage Arc (Curving around anterior chest wall)
-      const precPoints = [];
-      for (let a = -105; a <= 45; a += 5) {
-        const rad = (a * Math.PI) / 180;
-        const x = Math.sin(rad) * 2.05;
-        const z = Math.cos(rad) * 1.80;
-        precPoints.push(new THREE.Vector3(-x + 0.35, -0.28, z));
-      }
-      const precArcCurve = new THREE.CatmullRomCurve3(precPoints);
-      const precArcGeo = new THREE.TubeGeometry(precArcCurve, 36, 0.012, 8, false);
-      const precArcMat = new THREE.MeshBasicMaterial({ color: 0x8B5CF6, transparent: true, opacity: 0.40 });
-      referencePlanesGroup.add(new THREE.Mesh(precArcGeo, precArcMat));
-
-      // (D) Stylized Thoracic Rib Blueprint Silhouette
-      const ribMat = new THREE.LineBasicMaterial({ color: 0x38BDF8, transparent: true, opacity: 0.16 });
-      for (let r = 0; r < 4; r++) {
-        const yOffset = 0.55 - r * 0.45;
-        const ribCurvePoints = [
-          new THREE.Vector3(-2.0, yOffset - 0.2, -0.3),
-          new THREE.Vector3(-2.3, yOffset - 0.1, 0.3),
-          new THREE.Vector3(-1.3, yOffset, 1.5),
-          new THREE.Vector3(0.0, yOffset + 0.05, 1.9),
-          new THREE.Vector3(1.3, yOffset, 1.5),
-          new THREE.Vector3(2.3, yOffset - 0.1, 0.3),
-          new THREE.Vector3(2.0, yOffset - 0.2, -0.3)
-        ];
-        const ribCurve = new THREE.CatmullRomCurve3(ribCurvePoints);
-        const ribPts = ribCurve.getPoints(36);
-        const ribGeo = new THREE.BufferGeometry().setFromPoints(ribPts);
-        referencePlanesGroup.add(new THREE.Line(ribGeo, ribMat));
-      }
-    }
-
-    // ========================================================
-    // CREATE CRISP, PROMINENT BILLBOARD TEXT SPRITE FOR LEAD BADGES
-    // ========================================================
+    // Canvas-rendered circular sprite with bold colored ring, deep dark interior, bold white text
     function createLeadBadgeSprite(key, d) {
       const c = document.createElement("canvas");
       c.width = 240;
-      c.height = 104;
+      c.height = 240;
       const ctx = c.getContext("2d");
 
       const hexColor = "#" + (d.color.toString(16).padStart(6, "0"));
 
-      // Outer glow and translucent pill
-      ctx.fillStyle = "rgba(11, 17, 32, 0.95)";
-      ctx.strokeStyle = hexColor;
-      ctx.lineWidth = 4.5;
+      // Outer glow
       ctx.shadowColor = hexColor;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 14;
+
+      // Dark navy circular interior fill
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(6, 6, 228, 92, 18);
-      else ctx.rect(6, 6, 228, 92);
+      ctx.arc(120, 120, 102, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(10, 15, 29, 0.94)";
       ctx.fill();
+
+      // Outer colored stroke ring (5px thick)
+      ctx.lineWidth = 10;
+      ctx.strokeStyle = hexColor;
       ctx.stroke();
 
-      // Clear shadow for crisp text
+      // Reset shadow for crisp text
       ctx.shadowBlur = 0;
 
-      // Top subtle highlight line
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.30)";
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.moveTo(25, 18);
-      ctx.lineTo(215, 18);
-      ctx.stroke();
-
-      // Bold Lead Label (Prominently Legible)
+      // Bold centered lead name
       ctx.fillStyle = "#FFFFFF";
-      ctx.font = "bold 42px 'JetBrains Mono', Inter, monospace";
+      ctx.font = "bold 64px 'JetBrains Mono', Inter, monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(key, 120, 46);
-
-      // Subtitle with territory cluster
-      ctx.fillStyle = hexColor;
-      ctx.font = "bold 18px Inter, sans-serif";
-      ctx.fillText(d.cluster.toUpperCase(), 120, 78);
+      ctx.fillText(d.badgeText, 120, 120);
 
       const texture = new THREE.CanvasTexture(c);
       texture.generateMipmaps = true;
       texture.minFilter = THREE.LinearMipmapLinearFilter;
-      const material = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+
+      const material = new THREE.SpriteMaterial({
+        map: texture,
+        depthTest: false,
+        transparent: true
+      });
       const sprite = new THREE.Sprite(material);
-      sprite.scale.set(0.54, 0.23, 1);
+      sprite.scale.set(0.68, 0.68, 1);
       return sprite;
     }
 
-    // ========================================================
-    // ANIMATION & CARDIAC ACTION POTENTIAL CYCLE
-    // ========================================================
-    function animateHeart3D() {
-      requestAnimationFrame(animateHeart3D);
+    // --------------------------------------------------------
+    // G. BUILD 16 GENUINE ST-GAT GRAPH EDGES
+    // Thin, subtle, straight cylindrical lines (Real model topology only)
+    // --------------------------------------------------------
+    function buildSTGATGraphEdges() {
+      graphEdgesGroup = new THREE.Group();
+      graphEdgesGroup.name = "GRAPH_EDGES_GROUP";
+      heart3DScene.add(graphEdgesGroup);
 
-      heartAnimTime += 0.038;
+      const yAxis = new THREE.Vector3(0, 1, 0);
 
-      // 1. Heartbeat Pulsation Cycle (72 bpm Dual-Phase Systole & Diastole)
-      if (heartPulseActive && ventriclesMesh && heartMeshGroup) {
-        const t = (heartAnimTime * 1.6) % (2 * Math.PI);
-        const beatScale = 1.0 + 0.045 * Math.sin(t * 2) * Math.exp(-Math.pow((t % Math.PI) - 1.2, 2) * 3.5);
-        if (ventriclesGroup) {
-          ventriclesGroup.scale.set(beatScale, beatScale * 0.98, beatScale);
-        }
+      STGAT_GRAPH_EDGES.forEach(edge => {
+        const d1 = LEAD_3D_DATA[edge.from];
+        const d2 = LEAD_3D_DATA[edge.to];
+        if (!d1 || !d2) return;
 
-        // Action potential traveling myocardial glow (P -> QRS -> T)
-        const qrsBurst = Math.max(0, Math.sin(t * 2) * Math.exp(-Math.pow((t % Math.PI) - 1.2, 2) * 6));
-        if (ventriclesMesh && ventriclesMesh.material) {
-          ventriclesMesh.material.emissiveIntensity = 0.35 + qrsBurst * 1.6;
-        }
-      }
+        const p1 = new THREE.Vector3(...d1.pos);
+        const p2 = new THREE.Vector3(...d2.pos);
+        const dir = p2.clone().sub(p1);
+        const length = dir.length();
+        if (length < 0.001) return;
 
-      // 2. Animated Traveling Photons along ST-GAT Graph Edges
-      if (graphEdgesGroup && activeLayers.edges) {
-        graphEdgesGroup.children.forEach(child => {
-          if (child.userData && child.userData.curve) {
-            child.userData.progress += child.userData.speed;
-            if (child.userData.progress > 1.0) child.userData.progress = 0;
-            const pt = child.userData.curve.getPoint(child.userData.progress);
-            child.position.copy(pt);
-          }
+        const baseRadius = 0.015;
+        const cylGeo = new THREE.CylinderGeometry(baseRadius, baseRadius, length, 8, 1, true);
+        const cylMat = new THREE.MeshPhongMaterial({
+          color: 0x38bdf8,
+          emissive: 0x0284c7,
+          emissiveIntensity: 0.20,
+          transparent: true,
+          opacity: 0.38,
+          shininess: 30,
+          depthWrite: false
         });
-      }
 
-      // 3. Pulsing Myocardial Target Bullseyes
-      if (projectionsGroup && activeLayers.vectors) {
-        const pulse = 1.0 + 0.28 * Math.sin(heartAnimTime * 4);
-        projectionsGroup.children.forEach(child => {
-          if (child.name && child.name.startsWith("PROJ_SPOT_")) {
-            const isSelected = child.name === `PROJ_SPOT_${active3DLead}`;
-            child.scale.setScalar(isSelected ? pulse * 1.5 : 1.0);
-          }
-        });
-      }
+        const edgeMesh = new THREE.Mesh(cylGeo, cylMat);
+        const mid = p1.clone().add(p2).multiplyScalar(0.5);
+        edgeMesh.position.copy(mid);
+        edgeMesh.quaternion.setFromUnitVectors(yAxis, dir.clone().normalize());
 
-      // 4. Slow Ambient Auto-Rotation (When toggled ON)
-      if (heartAutoRotate && heartMeshGroup) {
-        heartMeshGroup.rotation.y += 0.0025;
-        if (leadNodesGroup) leadNodesGroup.rotation.y += 0.0025;
-        if (graphEdgesGroup) graphEdgesGroup.rotation.y += 0.0025;
-        if (projectionsGroup) projectionsGroup.rotation.y += 0.0025;
-        if (referencePlanesGroup) referencePlanesGroup.rotation.y += 0.0025;
-      }
-
-      if (heart3DControls) {
-        heart3DControls.update();
-      }
-
-      if (heart3DRenderer && heart3DScene && heart3DCamera) {
-        heart3DRenderer.render(heart3DScene, heart3DCamera);
-      }
-    }
-
-    // ========================================================
-    // LAYER TOGGLES & TRANSPARENCY CONTROLS
-    // ========================================================
-    function toggleLayer(layerName) {
-      if (!activeLayers.hasOwnProperty(layerName)) return;
-      activeLayers[layerName] = !activeLayers[layerName];
-
-      const btn = document.getElementById(`btn-layer-${layerName}`);
-      if (btn) {
-        btn.classList.toggle("active", activeLayers[layerName]);
-        const stateStr = activeLayers[layerName] ? "ON" : "OFF";
-        const labelMap = {
-          edges: "🔗 ST-GAT Graph Edges",
-          vectors: "🎯 Lead-to-Heart Rays",
-          conduction: "⚡ Conduction Network",
-          coronary: "🩸 Coronary Arteries",
-          planes: "📐 Hexaxial & Thorax"
+        edgeMesh.name = `EDGE_${edge.from}_${edge.to}`;
+        edgeMesh.userData = {
+          from: edge.from,
+          to: edge.to,
+          u: edge.u,
+          v: edge.v,
+          category: edge.category,
+          isAnatomical: edge.isAnatomical,
+          baseRadius: baseRadius,
+          p1: p1,
+          p2: p2,
+          length: length
         };
-        btn.innerText = `${labelMap[layerName]}: ${stateStr}`;
-      }
+        graphEdgesGroup.add(edgeMesh);
+      });
 
-      if (layerName === 'edges' && graphEdgesGroup) graphEdgesGroup.visible = activeLayers.edges;
-      if (layerName === 'vectors' && projectionsGroup) projectionsGroup.visible = activeLayers.vectors;
-      if (layerName === 'conduction' && conductionGroup) conductionGroup.visible = activeLayers.conduction;
-      if (layerName === 'coronary' && coronaryGroup) coronaryGroup.visible = activeLayers.coronary;
-      if (layerName === 'planes' && referencePlanesGroup) referencePlanesGroup.visible = activeLayers.planes;
+      filterGraphEdges(currentEdgeFilter);
     }
 
-    function toggleHeartTransparency() {
-      heartTranslucent = !heartTranslucent;
-      const btn = document.getElementById("btn-layer-transparent");
+    // --------------------------------------------------------
+    // H. PROPER TRAVELLING ELECTRICAL CURRENT SYSTEM
+    // 1. Cardiac Conduction Wave: SA Node -> Atria -> AV Node -> His/Septum -> Apex -> Ventricles (QRS) -> Repolarization (T-Wave)
+    // 2. ST-GAT Graph Pulses: Flowing across the 16 edges scaled by live attention weights
+    // --------------------------------------------------------
+    let conductionPulseSphere = null;
+    let conductionCurves = [];
+
+    function buildCardiacConductionSystem() {
+      conductionGroup = new THREE.Group();
+      conductionGroup.name = "CARDIAC_CONDUCTION_GROUP";
+      heart3DScene.add(conductionGroup);
+
+      // Main Conduction Highway: SA Node -> Crest -> AV Node -> His -> Septum -> Apex
+      const mainCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-0.62, 0.98, -0.05), // SA Node (High RA)
+        new THREE.Vector3(-0.25, 0.72, 0.16),  // Atrial crest / Bachmann
+        new THREE.Vector3(-0.08, 0.48, 0.22),  // AV Node (crux)
+        new THREE.Vector3(0.05, 0.20, 0.52),   // Bundle of His
+        new THREE.Vector3(0.18, -0.25, 0.68),  // Mid-Septum
+        new THREE.Vector3(0.28, -0.75, 0.58),  // Distal Septum
+        new THREE.Vector3(0.38, -1.25, 0.35)   // Cardiac Apex
+      ]);
+
+      // Left Ventricle Free Wall Purkinje Branch
+      const lvBranch = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.38, -1.25, 0.35),
+        new THREE.Vector3(0.75, -0.80, 0.35),
+        new THREE.Vector3(0.90, -0.30, 0.22),
+        new THREE.Vector3(0.65, 0.20, -0.10)
+      ]);
+
+      // Right Ventricle Free Wall Purkinje Branch
+      const rvBranch = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.38, -1.25, 0.35),
+        new THREE.Vector3(-0.25, -0.90, 0.42),
+        new THREE.Vector3(-0.68, -0.45, 0.35),
+        new THREE.Vector3(-0.50, 0.10, 0.25)
+      ]);
+
+      conductionCurves = [mainCurve, lvBranch, rvBranch];
+
+      // Subtle resting nerve fiber lines
+      const fiberMat = new THREE.LineBasicMaterial({
+        color: 0xfbbf24,
+        transparent: true,
+        opacity: 0.45,
+        linewidth: 1
+      });
+
+      conductionCurves.forEach(c => {
+        const pts = c.getPoints(36);
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        conductionGroup.add(new THREE.Line(geo, fiberMat));
+      });
+
+      // Travelling Electrical Spark/Wavefront Sphere
+      const sparkGeo = new THREE.SphereGeometry(0.09, 16, 16);
+      const sparkMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.95
+      });
+      conductionPulseSphere = new THREE.Mesh(sparkGeo, sparkMat);
+      conductionGroup.add(conductionPulseSphere);
+    }
+
+    // Build Travelling Pulses along genuine ST-GAT Graph Edges
+    let graphPulses = [];
+
+    function buildGraphTravellingPulses() {
+      graphPulsesGroup = new THREE.Group();
+      graphPulsesGroup.name = "GRAPH_PULSES_GROUP";
+      heart3DScene.add(graphPulsesGroup);
+
+      const pulseGeo = new THREE.SphereGeometry(0.045, 10, 10);
+
+      STGAT_GRAPH_EDGES.forEach((edge, idx) => {
+        const d1 = LEAD_3D_DATA[edge.from];
+        const d2 = LEAD_3D_DATA[edge.to];
+        if (!d1 || !d2) return;
+
+        const p1 = new THREE.Vector3(...d1.pos);
+        const p2 = new THREE.Vector3(...d2.pos);
+
+        // Forward pulse (u -> v)
+        const matFwd = new THREE.MeshBasicMaterial({
+          color: 0x38bdf8,
+          transparent: true,
+          opacity: 0.85
+        });
+        const pulseFwd = new THREE.Mesh(pulseGeo, matFwd);
+        graphPulsesGroup.add(pulseFwd);
+
+        // Reverse pulse (v -> u)
+        const matRev = new THREE.MeshBasicMaterial({
+          color: 0x60a5fa,
+          transparent: true,
+          opacity: 0.70
+        });
+        const pulseRev = new THREE.Mesh(pulseGeo, matRev);
+        graphPulsesGroup.add(pulseRev);
+
+        graphPulses.push({
+          meshFwd: pulseFwd,
+          meshRev: pulseRev,
+          p1: p1,
+          p2: p2,
+          u: edge.u,
+          v: edge.v,
+          from: edge.from,
+          to: edge.to,
+          phaseOffset: (idx * 0.13) % 1.0
+        });
+      });
+    }
+
+    // Update travelling currents in the animation loop
+    function updateTravellingCurrent(timeSeconds) {
+      if (!travellingCurrentActive) {
+        if (conductionGroup) conductionGroup.visible = false;
+        if (graphPulsesGroup) graphPulsesGroup.visible = false;
+        return;
+      }
+      if (conductionGroup) conductionGroup.visible = true;
+      if (graphPulsesGroup) graphPulsesGroup.visible = showGraphEdges;
+
+      // Cycle duration T = 1.0s (60 bpm)
+      const cycleT = timeSeconds % 1.0;
+
+      // 1. Cardiac Conduction System Propagation
+      const pill = document.getElementById("conduction-phase-pill");
+      if (conductionPulseSphere && conductionCurves[0]) {
+        let currentPos = new THREE.Vector3();
+        let glowColor = 0xffffff;
+        let phaseText = "";
+
+        if (cycleT < 0.22) {
+          // SA Node & Atrial Depolarization (P-Wave)
+          const prog = cycleT / 0.22;
+          currentPos = conductionCurves[0].getPoint(prog * 0.33); // SA to AV node
+          glowColor = 0xf59e0b; // Amber
+          phaseText = "⚡ SA Node Firing → Atrial Depol (P-Wave)";
+          if (atriaGroup) {
+            atriaGroup.children.forEach(c => {
+              if (c.material) c.material.emissiveIntensity = 0.50 + 0.30 * Math.sin(prog * Math.PI);
+            });
+          }
+        } else if (cycleT < 0.35) {
+          // AV Node Delay (PR Segment)
+          currentPos = conductionCurves[0].getPoint(0.33);
+          glowColor = 0xfbbf24;
+          phaseText = "⚡ AV Node Conduction Delay (PR Segment)";
+        } else if (cycleT < 0.60) {
+          // Septal Depolarization down His/LAD to Apex (QRS onset)
+          const prog = (cycleT - 0.35) / 0.25;
+          currentPos = conductionCurves[0].getPoint(0.33 + prog * 0.67);
+          glowColor = 0x38bdf8; // Neon Cyan
+          phaseText = "⚡ Bundle of His → Septal Wave to Apex (Q-Wave)";
+        } else if (cycleT < 0.78) {
+          // Ventricular Free Wall Purkinje Depolarization (QRS Peak)
+          const prog = (cycleT - 0.60) / 0.18;
+          currentPos = conductionCurves[1].getPoint(prog);
+          glowColor = 0x10b981; // Green
+          phaseText = "⚡ Purkinje Wavefront → Ventricular Myocardium (R/S Peak)";
+          if (ventriclesMesh && ventriclesMesh.material) {
+            ventriclesMesh.material.emissiveIntensity = 0.40 + 0.35 * Math.sin(prog * Math.PI);
+          }
+        } else {
+          // Ventricular Repolarization (T-Wave)
+          const prog = (cycleT - 0.78) / 0.22;
+          currentPos = conductionCurves[0].getPoint(0.95 - prog * 0.25);
+          glowColor = 0xec4899; // Rose
+          phaseText = "⚡ Ventricular Repolarization (T-Wave)";
+          if (ventriclesMesh && ventriclesMesh.material) {
+            ventriclesMesh.material.emissiveIntensity = 0.20;
+          }
+        }
+
+        conductionPulseSphere.position.copy(currentPos);
+        conductionPulseSphere.material.color.setHex(glowColor);
+
+        if (pill && pill.innerText !== phaseText) {
+          pill.innerText = phaseText;
+        }
+      }
+
+      // 2. ST-GAT Graph Edges Travelling Electrical Pulses
+      let activeMatrix = latestGATAttentionMatrix;
+      if (currentAttentionHead >= 0 && currentAttentionHead < 4 && latestGATAttentionHeads && latestGATAttentionHeads[currentAttentionHead]) {
+        activeMatrix = latestGATAttentionHeads[currentAttentionHead];
+      }
+
+      graphPulses.forEach(p => {
+        const isUActive = activeLeads.includes(p.u);
+        const isVActive = activeLeads.includes(p.v);
+
+        if (!isUActive || !isVActive) {
+          p.meshFwd.visible = false;
+          p.meshRev.visible = false;
+          return;
+        }
+
+        // Attention modulates speed and brightness
+        let attScore = 0.20;
+        if (activeMatrix && activeMatrix[p.u] && activeMatrix[p.v]) {
+          const a_uv = activeMatrix[p.u][p.v] || 0.0;
+          const a_vu = activeMatrix[p.v][p.u] || 0.0;
+          attScore = Math.max(0.15, Math.min(1.0, (a_uv + a_vu) * 3.5));
+        }
+
+        // Fwd progress
+        const speed = 0.65 + attScore * 0.85;
+        const progFwd = (timeSeconds * speed + p.phaseOffset) % 1.0;
+        const progRev = (timeSeconds * speed + p.phaseOffset + 0.5) % 1.0;
+
+        p.meshFwd.position.copy(p.p1.clone().lerp(p.p2, progFwd));
+        p.meshRev.position.copy(p.p2.clone().lerp(p.p1, progRev));
+
+        const scale = 0.8 + attScore * 1.4;
+        p.meshFwd.scale.set(scale, scale, scale);
+        p.meshRev.scale.set(scale, scale, scale);
+
+        p.meshFwd.visible = true;
+        p.meshRev.visible = true;
+      });
+    }
+
+    function toggleTravellingCurrent() {
+      travellingCurrentActive = !travellingCurrentActive;
+      const btn = document.getElementById("btn-toggle-current");
       if (btn) {
-        btn.classList.toggle("active", heartTranslucent);
-        btn.innerText = heartTranslucent ? "👁️ Solid Myocardium" : "👁️ Translucent Myocardium";
-      }
-
-      if (ventriclesMesh) {
-        ventriclesMesh.material.transparent = heartTranslucent;
-        ventriclesMesh.material.opacity = heartTranslucent ? 0.38 : 1.0;
-        ventriclesMesh.material.depthWrite = !heartTranslucent;
+        if (travellingCurrentActive) {
+          btn.innerText = "⚡ Travelling Current: ON";
+          btn.style.background = "rgba(245, 158, 11, 0.2)";
+          btn.style.borderColor = "#f59e0b";
+          btn.style.color = "#fbbf24";
+        } else {
+          btn.innerText = "⚡ Travelling Current: OFF";
+          btn.style.background = "var(--bg-elevated)";
+          btn.style.borderColor = "var(--border-subtle)";
+          btn.style.color = "var(--text-muted)";
+        }
       }
     }
 
-    // ========================================================
-    // CAMERA PRESETS & VIEW CONTROLS (Framed to show entire scene)
-    // ========================================================
-    function setHeartCameraView(preset) {
-      if (!heart3DCamera || !heart3DControls) return;
+    // --------------------------------------------------------
+    // I. FILTER GRAPH EDGES
+    // --------------------------------------------------------
+    function filterGraphEdges(filterType) {
+      currentEdgeFilter = filterType || currentEdgeFilter;
+      if (!graphEdgesGroup) return;
 
-      heartAutoRotate = false;
-      const btnRotate = document.getElementById("btn-toggle-autorotate");
-      if (btnRotate) btnRotate.innerText = "🔄 Auto-Rotate: OFF";
+      graphEdgesGroup.children.forEach(edgeMesh => {
+        if (!edgeMesh.userData || edgeMesh.userData.u === undefined) return;
+        const cat = edgeMesh.userData.category;
+        const from = edgeMesh.userData.from;
+        const to = edgeMesh.userData.to;
+        const isAnat = edgeMesh.userData.isAnatomical;
 
-      // Reset global group rotation to zero for reproducible canonical angles
-      [heartMeshGroup, leadNodesGroup, graphEdgesGroup, projectionsGroup, referencePlanesGroup].forEach(g => {
-        if (g) g.rotation.set(0, 0, 0);
+        let visible = true;
+        if (currentEdgeFilter === 'anatomical') {
+          visible = isAnat;
+        } else if (currentEdgeFilter === 'all') {
+          visible = true;
+        } else if (currentEdgeFilter === 'incident') {
+          visible = (from === active3DLead || to === active3DLead);
+        } else if (currentEdgeFilter === 'precordial') {
+          visible = (cat === 'precordial');
+        } else if (currentEdgeFilter === 'inferior') {
+          visible = (cat === 'inferior');
+        } else if (currentEdgeFilter === 'lateral') {
+          visible = (cat === 'lateral');
+        } else if (currentEdgeFilter === 'reciprocal') {
+          visible = (cat === 'reciprocal');
+        }
+
+        const isUActive = activeLeads.includes(edgeMesh.userData.u);
+        const isVActive = activeLeads.includes(edgeMesh.userData.v);
+        edgeMesh.visible = visible && isUActive && isVActive && showGraphEdges;
+      });
+    }
+
+    // --------------------------------------------------------
+    // J. VIEW DISPLAY MODES: 3D vs 2D vs DUAL VIEW
+    // --------------------------------------------------------
+    function setGraphDisplayView(mode) {
+      currentDisplayView = mode;
+
+      const container = document.getElementById("vis-display-container");
+      const card3D = document.getElementById("heart-3d-container");
+      const card2D = document.getElementById("sync-2d-graph-card");
+
+      const btn3D = document.getElementById("btn-view-3d");
+      const btn2D = document.getElementById("btn-view-2d");
+      const btnDual = document.getElementById("btn-view-dual");
+
+      [btn3D, btn2D, btnDual].forEach(b => { if (b) b.classList.remove("active"); });
+
+      if (mode === '3d') {
+        if (btn3D) btn3D.classList.add("active");
+        if (container) container.style.gridTemplateColumns = "1fr";
+        if (card3D) card3D.style.display = "block";
+        if (card2D) card2D.style.display = "none";
+      } else if (mode === '2d') {
+        if (btn2D) btn2D.classList.add("active");
+        if (container) container.style.gridTemplateColumns = "1fr";
+        if (card3D) card3D.style.display = "none";
+        if (card2D) {
+          card2D.style.display = "flex";
+          drawSynchronizedLeadGraph();
+        }
+      } else if (mode === 'dual') {
+        if (btnDual) btnDual.classList.add("active");
+        if (container) container.style.gridTemplateColumns = "1fr 1fr";
+        if (card3D) card3D.style.display = "block";
+        if (card2D) {
+          card2D.style.display = "flex";
+          drawSynchronizedLeadGraph();
+        }
+      }
+
+      if (heart3DRenderer && heart3DCamera && card3D) {
+        const w = card3D.clientWidth || 600;
+        const h = card3D.clientHeight || 540;
+        heart3DCamera.aspect = w / h;
+        heart3DCamera.updateProjectionMatrix();
+        heart3DRenderer.setSize(w, h);
+      }
+    }
+
+    // --------------------------------------------------------
+    // K. SYNCHRONIZED 2D PLANAR GRAPH SVG
+    // Matches the circular perimeter layout of the reference image
+    // --------------------------------------------------------
+    function drawSynchronizedLeadGraph() {
+      const svg = document.getElementById("lead-graph-sync-svg");
+      if (!svg) return;
+      svg.innerHTML = "";
+
+      // Canonical 2D Circular Perimeter Layout matching Reference Diagram
+      const pos2D = {
+        'I':   { x: 300, y: 55,  color: '#06b6d4', group: 'Lateral Limb' },
+        'AVR': { x: 140, y: 110, color: '#f59e0b', group: 'Cavity Reciprocal' },
+        'II':  { x: 75,  y: 220, color: '#10b981', group: 'Inferior Limb' },
+        'III': { x: 75,  y: 340, color: '#14b8a6', group: 'Inferior Limb' },
+        'AVF': { x: 140, y: 440, color: '#22c55e', group: 'Inferior Limb' },
+        'AVL': { x: 460, y: 110, color: '#eab308', group: 'Lateral Limb' },
+        'V1':  { x: 525, y: 180, color: '#8b5cf6', group: 'Precordial Septal' },
+        'V2':  { x: 545, y: 275, color: '#ec4899', group: 'Precordial Septal' },
+        'V3':  { x: 525, y: 370, color: '#f43f5e', group: 'Precordial Anterior' },
+        'V4':  { x: 460, y: 440, color: '#f97316', group: 'Precordial Anterior' },
+        'V5':  { x: 370, y: 480, color: '#6366f1', group: 'Precordial Lateral' },
+        'V6':  { x: 250, y: 480, color: '#3b82f6', group: 'Precordial Lateral' }
+      };
+
+      let activeMatrix = latestGATAttentionMatrix;
+      if (currentAttentionHead >= 0 && currentAttentionHead < 4 && latestGATAttentionHeads && latestGATAttentionHeads[currentAttentionHead]) {
+        activeMatrix = latestGATAttentionHeads[currentAttentionHead];
+      }
+
+      // Draw Edges
+      STGAT_GRAPH_EDGES.forEach(edge => {
+        const p1 = pos2D[edge.from];
+        const p2 = pos2D[edge.to];
+        if (!p1 || !p2) return;
+
+        const isIncident = (edge.from === active3DLead || edge.to === active3DLead);
+        let strokeColor = "#334155";
+        let strokeWidth = 1.6;
+        let strokeOpacity = 0.35;
+
+        if (activeMatrix && activeMatrix[edge.u] && activeMatrix[edge.v]) {
+          const a_mean = (activeMatrix[edge.u][edge.v] + activeMatrix[edge.v][edge.u]) / 2.0;
+          strokeWidth = Math.max(1.2, Math.min(5.5, a_mean * 18.0));
+          strokeOpacity = Math.max(0.25, Math.min(0.95, a_mean * 4.5));
+          strokeColor = isIncident ? "#38bdf8" : "#60a5fa";
+        } else if (isIncident) {
+          strokeColor = "#38bdf8";
+          strokeOpacity = 0.90;
+          strokeWidth = 2.5;
+        }
+
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", p1.x);
+        line.setAttribute("y1", p1.y);
+        line.setAttribute("x2", p2.x);
+        line.setAttribute("y2", p2.y);
+        line.setAttribute("stroke", strokeColor);
+        line.setAttribute("stroke-width", strokeWidth);
+        line.setAttribute("stroke-opacity", strokeOpacity);
+        svg.appendChild(line);
       });
 
-      if (preset === 'frontal') {
-        heart3DCamera.position.set(0, 0, 8.6);
-        heart3DControls.target.set(0, -0.15, 0);
-        selectLead3D('II');
-      } else if (preset === 'precordial') {
-        heart3DCamera.position.set(-2.8, 1.6, 7.5);
-        heart3DControls.target.set(0.4, -0.2, 0.6);
-        selectLead3D('V3');
-      } else if (preset === 'axis') {
-        heart3DCamera.position.set(3.8, -2.8, 6.2);
-        heart3DControls.target.set(0.2, -0.3, 0);
-        selectLead3D('II');
-      } else if (preset === 'inferior') {
-        heart3DCamera.position.set(0.0, -5.4, 4.8);
-        heart3DControls.target.set(0.1, -0.8, 0);
-        selectLead3D('AVF');
-        highlightTerritory('inferior');
-      } else if (preset === 'anterior') {
-        heart3DCamera.position.set(-1.2, 0.4, 7.2);
-        heart3DControls.target.set(0.2, -0.2, 0.4);
-        selectLead3D('V3');
-        highlightTerritory('anterior');
-      } else if (preset === 'lateral') {
-        heart3DCamera.position.set(5.8, 0.8, 3.8);
-        heart3DControls.target.set(0.4, -0.1, 0);
-        selectLead3D('I');
-        highlightTerritory('lateral');
-      }
-    }
+      // Draw Nodes (Circular Ring Badges matching Reference Diagram)
+      Object.keys(pos2D).forEach(key => {
+        const p = pos2D[key];
+        const isSelected = key === active3DLead;
 
-    function highlightTerritory(territory) {
-      if (!ventriclesMesh) return;
-      if (territory === 'inferior') {
-        ventriclesMesh.material.color.setHex(0xF59E0B);
-        setTimeout(() => ventriclesMesh && ventriclesMesh.material.color.setHex(0x9E1C24), 2500);
-      } else if (territory === 'anterior') {
-        if (ladMesh) ladMesh.material.emissive.setHex(0xEF4444);
-        setTimeout(() => ladMesh && ladMesh.material.emissive.setHex(0xB45309), 2500);
-      } else if (territory === 'lateral') {
-        if (ventriclesMesh) ventriclesMesh.material.color.setHex(0x06B6D4);
-        setTimeout(() => ventriclesMesh && ventriclesMesh.material.color.setHex(0x9E1C24), 2500);
-      }
-    }
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.style.cursor = "pointer";
+        g.onclick = () => selectLead3D(key);
 
-    function toggleHeartPulse() {
-      heartPulseActive = !heartPulseActive;
-      const btn = document.getElementById("btn-toggle-pulse");
-      if (btn) btn.innerText = heartPulseActive ? "💓 Heartbeat: ON" : "💓 Heartbeat: OFF";
-    }
+        // Selection pulsing ring
+        if (isSelected) {
+          const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          halo.setAttribute("cx", p.x);
+          halo.setAttribute("cy", p.y);
+          halo.setAttribute("r", 24);
+          halo.setAttribute("fill", "none");
+          halo.setAttribute("stroke", p.color);
+          halo.setAttribute("stroke-width", 2.5);
+          halo.setAttribute("stroke-dasharray", "4,3");
+          g.appendChild(halo);
+        }
 
-    function toggleHeartAutoRotate() {
-      heartAutoRotate = !heartAutoRotate;
-      const btn = document.getElementById("btn-toggle-autorotate");
-      if (btn) btn.innerText = heartAutoRotate ? "🔄 Auto-Rotate: ON" : "🔄 Auto-Rotate: OFF";
-    }
+        // Circular background
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", p.x);
+        circle.setAttribute("cy", p.y);
+        circle.setAttribute("r", isSelected ? 17 : 14);
+        circle.setAttribute("fill", "#0a0f1d");
+        circle.setAttribute("stroke", p.color);
+        circle.setAttribute("stroke-width", isSelected ? 3.5 : 2.5);
+        g.appendChild(circle);
 
-    function resetHeart3DView() {
-      if (!heart3DCamera || !heart3DControls) return;
-      [heartMeshGroup, leadNodesGroup, graphEdgesGroup, projectionsGroup, referencePlanesGroup].forEach(g => {
-        if (g) g.rotation.set(0, 0, 0);
+        // Lead text
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.setAttribute("x", p.x);
+        txt.setAttribute("y", p.y + 4);
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("font-size", isSelected ? "11px" : "10px");
+        txt.setAttribute("font-weight", "bold");
+        txt.setAttribute("fill", "#FFFFFF");
+        txt.textContent = key;
+        g.appendChild(txt);
+
+        svg.appendChild(g);
       });
-      heart3DCamera.position.set(0, 0, 8.6);
-      heart3DControls.target.set(0, -0.15, 0);
-      heartAutoRotate = false;
-      const btnRotate = document.getElementById("btn-toggle-autorotate");
-      if (btnRotate) btnRotate.innerText = "🔄 Auto-Rotate: OFF";
-      selectLead3D('II');
     }
 
-    // ========================================================
-    // SELECT LEAD & UPDATE 3D SCENE + TELEMETRY PANEL
-    // ========================================================
+    // --------------------------------------------------------
+    // L. ATTENTION HEAD & ATTENTION MATRIX UPDATES
+    // --------------------------------------------------------
+    function setAttentionHead(headIdx) {
+      currentAttentionHead = parseInt(headIdx, 10);
+      if (latestGATAttentionMatrix) {
+        update3DGraphAttention(latestGATAttentionMatrix, latestGATAttentionHeads, latestModelName, latestLeadWeights);
+      }
+    }
+
+    function update3DGraphAttention(attMatrix, attHeads, modelName, leadWeights) {
+      latestGATAttentionMatrix = attMatrix;
+      latestGATAttentionHeads = attHeads;
+      latestModelName = modelName || 'stgat';
+      latestLeadWeights = leadWeights;
+
+      const isSTGAT = latestModelName === 'stgat' || latestModelName === 'dropout';
+
+      const hudStatus = document.getElementById("hud-model-name");
+      const telHeadInd = document.getElementById("tel-head-indicator");
+      if (hudStatus) {
+        if (isSTGAT) {
+          const headLabel = currentAttentionHead === -1 ? "K=4 Head Mean" : `Head ${currentAttentionHead + 1}`;
+          hudStatus.innerHTML = `<strong style="color:#38bdf8;">ST-GAT Active</strong> (${headLabel})`;
+          if (telHeadInd) telHeadInd.innerText = headLabel;
+        } else {
+          hudStatus.innerHTML = `<span style="color:#94a3b8;">Baseline 1D-CNN (K=0)</span>`;
+          if (telHeadInd) telHeadInd.innerText = "No Spatial Graph";
+        }
+      }
+
+      let activeMatrix = attMatrix;
+      if (currentAttentionHead >= 0 && currentAttentionHead < 4 && attHeads && attHeads[currentAttentionHead]) {
+        activeMatrix = attHeads[currentAttentionHead];
+      }
+
+      if (graphEdgesGroup) {
+        graphEdgesGroup.children.forEach(edgeMesh => {
+          if (!edgeMesh.userData || edgeMesh.userData.u === undefined) return;
+
+          const u = edgeMesh.userData.u;
+          const v = edgeMesh.userData.v;
+
+          const isUActive = activeLeads.includes(u);
+          const isVActive = activeLeads.includes(v);
+          const isEdgeActive = isUActive && isVActive;
+
+          if (!isEdgeActive) {
+            edgeMesh.material.opacity = 0.05;
+            edgeMesh.material.color.setHex(0x334155);
+            edgeMesh.scale.set(0.5, 1.0, 0.5);
+            return;
+          }
+
+          if (isSTGAT && activeMatrix && activeMatrix[u] && activeMatrix[v]) {
+            const alpha_uv = activeMatrix[u][v] || 0.0;
+            const alpha_vu = activeMatrix[v][u] || 0.0;
+            const alpha_mean = (alpha_uv + alpha_vu) / 2.0;
+
+            const normScore = Math.min(1.0, Math.max(0.05, alpha_mean * 5.0));
+            const targetOpacity = 0.25 + 0.65 * normScore;
+            const targetScale = 0.7 + 1.4 * normScore;
+
+            edgeMesh.material.opacity = targetOpacity;
+            edgeMesh.material.color.setHex(0x38bdf8);
+            edgeMesh.scale.set(targetScale, 1.0, targetScale);
+            edgeMesh.userData.alpha_uv = alpha_uv;
+            edgeMesh.userData.alpha_vu = alpha_vu;
+            edgeMesh.userData.alpha_mean = alpha_mean;
+          } else {
+            edgeMesh.material.opacity = 0.25;
+            edgeMesh.material.color.setHex(0x64748b);
+            edgeMesh.scale.set(1.0, 1.0, 1.0);
+          }
+        });
+      }
+
+      filterGraphEdges(currentEdgeFilter);
+      drawSynchronizedLeadGraph();
+      selectLead3D(active3DLead);
+    }
+
+    // --------------------------------------------------------
+    // M. SELECT LEAD & UPDATE UNCLIPPED TELEMETRY PANEL
+    // --------------------------------------------------------
     function selectLead3D(leadName) {
       const d = LEAD_3D_DATA[leadName];
       if (!d) return;
 
       active3DLead = leadName;
+      const u = d.idx;
 
-      // 1. Update HUD Overlay
-      const hudLead = document.getElementById("hud-lead-name");
-      const hudTerr = document.getElementById("hud-territory");
-      if (hudLead) hudLead.innerText = `Active Lead: ${d.name} (${d.angle})`;
-      if (hudTerr) hudTerr.innerText = `Wall: ${d.wall}`;
+      const activeStatus = document.getElementById("active-lead-status");
+      if (activeStatus) activeStatus.innerText = `${d.name} (${d.angle})`;
 
-      // 2. Update Side Telemetry Card
       const telTitle = document.getElementById("tel-lead-title");
       const telPlane = document.getElementById("tel-plane-badge");
       const telAngle = document.getElementById("tel-angle");
       const telWall  = document.getElementById("tel-wall");
       const telArtery= document.getElementById("tel-artery");
       const telTarget= document.getElementById("tel-target");
-      const telNeigh = document.getElementById("tel-neighbors");
+      const telType  = document.getElementById("tel-lead-type");
       const telRatio = document.getElementById("tel-rationale");
 
-      if (telTitle) telTitle.innerText = `${d.name} (${d.wall.split(' ')[0]})`;
+      if (telTitle) telTitle.innerText = `${d.name} · ${d.cluster}`;
       if (telPlane) telPlane.innerText = d.plane;
       if (telAngle) telAngle.innerText = d.angle;
       if (telWall)  telWall.innerText  = d.wall;
       if (telArtery)telArtery.innerText= d.artery;
       if (telTarget)telTarget.innerText= d.target;
-      if (telNeigh) telNeigh.innerText = d.neighbors.join(", ");
-      if (telRatio) telRatio.innerHTML = `<strong>Why Spatial Graph Attention Matters:</strong> ${d.rationale}`;
+      if (telType)  telType.innerText  = d.type;
+      if (telRatio) telRatio.innerHTML = `<strong>Physiological Context:</strong> ${d.rationale}`;
 
-      // 3. Update 2D Quick Selector Buttons
-      const container = document.getElementById("lead-btn-selector-3d");
-      if (container) {
-        container.querySelectorAll("button").forEach(btn => {
+      const incidentEdges = STGAT_GRAPH_EDGES.filter(e => e.from === leadName || e.to === leadName);
+      const neighborNames = incidentEdges.map(e => e.from === leadName ? e.to : e.from);
+
+      const telNeigh = document.getElementById("tel-neighbors");
+      if (telNeigh) telNeigh.innerText = neighborNames.join(", ");
+
+      const attContainer = document.getElementById("tel-attention-table-container");
+      if (attContainer) {
+        const isSTGAT = latestModelName === 'stgat' || latestModelName === 'dropout';
+        let activeMatrix = latestGATAttentionMatrix;
+        if (currentAttentionHead >= 0 && currentAttentionHead < 4 && latestGATAttentionHeads && latestGATAttentionHeads[currentAttentionHead]) {
+          activeMatrix = latestGATAttentionHeads[currentAttentionHead];
+        }
+
+        if (isSTGAT && activeMatrix) {
+          let rowsHtml = `
+            <table style="width:100%; font-size:0.75rem; border-collapse:collapse; margin-top:0.25rem;">
+              <thead>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.1); color:var(--text-muted); text-align:left;">
+                  <th style="padding:4px;">Neighbor</th>
+                  <th style="padding:4px; text-align:right;">α(${leadName}→v)</th>
+                  <th style="padding:4px; text-align:right;">α(v→${leadName})</th>
+                  <th style="padding:4px; text-align:right;">Weight</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+          neighborNames.forEach(nName => {
+            const v = LEAD_3D_DATA[nName].idx;
+            const a_out = (activeMatrix[u] && activeMatrix[u][v] !== undefined) ? activeMatrix[u][v] : 0.0;
+            const a_in  = (activeMatrix[v] && activeMatrix[v][u] !== undefined) ? activeMatrix[v][u] : 0.0;
+            rowsHtml += `
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                <td style="padding:4px; font-weight:600; color:#38bdf8;">${nName}</td>
+                <td style="padding:4px; text-align:right; font-family:'JetBrains Mono';">${a_out.toFixed(4)}</td>
+                <td style="padding:4px; text-align:right; font-family:'JetBrains Mono'; color:var(--text-muted);">${a_in.toFixed(4)}</td>
+                <td style="padding:4px; text-align:right;">
+                  <div style="background:rgba(56,189,248,0.15); height:6px; border-radius:3px; overflow:hidden; width:50px; display:inline-block;">
+                    <div style="background:#38bdf8; height:100%; width:${Math.min(100, a_out * 400)}%;"></div>
+                  </div>
+                </td>
+              </tr>
+            `;
+          });
+          rowsHtml += `</tbody></table>`;
+          attContainer.innerHTML = rowsHtml;
+        } else {
+          attContainer.innerHTML = `
+            <div style="font-size:0.74rem; color:var(--text-muted); padding:0.4rem; background:rgba(255,255,255,0.02); border-radius:4px; margin-top:0.4rem;">
+              <em>Select a record in Tab 1 and run inference to extract genuine GATv2 attention weights.</em>
+            </div>
+          `;
+        }
+      }
+
+      // Update Quick Selector Grid Buttons
+      const btnGrid = document.getElementById("lead-btn-selector-3d");
+      if (btnGrid) {
+        btnGrid.querySelectorAll("button").forEach(btn => {
           const btnTxt = btn.innerText.toUpperCase();
-          const isTarget = btnTxt === leadName.toUpperCase() ||
-                          (leadName === 'AVR' && btnTxt === 'AVR') ||
-                          (leadName === 'AVL' && btnTxt === 'AVL') ||
-                          (leadName === 'AVF' && btnTxt === 'AVF');
+          const isTarget = btnTxt === leadName.toUpperCase();
           if (isTarget) {
             btn.style.background = "var(--accent-blue)";
             btn.style.color = "#FFFFFF";
@@ -2971,75 +3248,172 @@
         });
       }
 
-      // 4. Highlight 3D Electrode Spheres
+      // Highlight 3D Electrode Core and Badges
       if (leadNodesGroup) {
         leadNodesGroup.children.forEach(group => {
           const isThis = group.name === `LEAD_${leadName}`;
           group.children.forEach(child => {
-            if (child.isMesh && child.geometry.type === "SphereGeometry") {
-              child.material.emissiveIntensity = isThis ? 1.8 : 0.60;
-              child.scale.setScalar(isThis ? 1.5 : 1.0);
+            if (child.name && child.name.startsWith("CORE_")) {
+              child.material.emissiveIntensity = isThis ? 0.95 : 0.35;
+              const scale = isThis ? 1.35 : 1.0;
+              child.scale.set(scale, scale, scale);
+            } else if (child.name && child.name.startsWith("BADGE_")) {
+              const bScale = isThis ? 0.82 : 0.68;
+              child.scale.set(bScale, bScale, 1);
             }
           });
         });
       }
 
-      // 5. Highlight Incident ST-GAT Graph Edges in 3D
-      if (graphEdgesGroup) {
-        graphEdgesGroup.children.forEach(child => {
-          if (child.userData && child.userData.from) {
-            const isIncident = child.userData.from === leadName || child.userData.to === leadName;
-            child.material.emissiveIntensity = isIncident ? 1.8 : 0.40;
-            child.material.opacity = isIncident ? 1.0 : 0.45;
-            child.scale.set(isIncident ? 1.5 : 1.0, 1.0, isIncident ? 1.5 : 1.0);
-          }
-        });
+      if (currentEdgeFilter === 'incident') {
+        filterGraphEdges('incident');
       }
-
-      // 6. Highlight Projection Line & Myocardial Bullseye
-      if (projectionsGroup) {
-        projectionsGroup.children.forEach(child => {
-          if (child.name === `PROJ_LINE_${leadName}`) {
-            child.material.opacity = 1.0;
-            child.material.color.setHex(0x10B981);
-          } else if (child.name && child.name.startsWith("PROJ_LINE_")) {
-            child.material.opacity = 0.30;
-            const origLead = child.name.replace("PROJ_LINE_", "");
-            if (LEAD_3D_DATA[origLead]) child.material.color.setHex(LEAD_3D_DATA[origLead].color);
-          }
-        });
-      }
+      drawSynchronizedLeadGraph();
     }
 
-    // ========================================================
-    // INTERACTIVE RAYCASTING FOR 3D LEAD CLICKS
-    // ========================================================
+    // --------------------------------------------------------
+    // N. RAYCASTING INTERACTION
+    // --------------------------------------------------------
     function setupLeadRaycasting(container) {
       const raycaster = new THREE.Raycaster();
       const mouse = new THREE.Vector2();
 
-      container.addEventListener("pointerdown", (event) => {
+      container.addEventListener("pointerdown", (e) => {
         const rect = container.getBoundingClientRect();
-        mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
-        mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
-        raycaster.setFromCamera(mouse, heart3DCamera);
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-        // Check intersection with lead nodes or sprites
-        if (leadNodesGroup) {
-          const intersects = raycaster.intersectObjects(leadNodesGroup.children, true);
-          if (intersects.length > 0) {
-            let obj = intersects[0].object;
-            while (obj && !obj.name.startsWith("LEAD_") && obj.parent) {
-              obj = obj.parent;
-            }
-            if (obj && obj.name.startsWith("LEAD_")) {
-              const leadKey = obj.name.replace("LEAD_", "");
-              selectLead3D(leadKey);
-            }
+        raycaster.setFromCamera(mouse, heart3DCamera);
+        if (!leadNodesGroup) return;
+
+        const targets = [];
+        leadNodesGroup.children.forEach(g => {
+          g.children.forEach(c => targets.push(c));
+        });
+
+        const hits = raycaster.intersectObjects(targets, true);
+        if (hits.length > 0) {
+          let nodeGroup = hits[0].object.parent;
+          while (nodeGroup && !nodeGroup.userData.leadKey && nodeGroup.parent) {
+            nodeGroup = nodeGroup.parent;
+          }
+          if (nodeGroup && nodeGroup.userData && nodeGroup.userData.leadKey) {
+            selectLead3D(nodeGroup.userData.leadKey);
           }
         }
       });
     }
+
+    // --------------------------------------------------------
+    // O. CAMERA PRESET VIEWS & TOGGLE CONTROLS
+    // --------------------------------------------------------
+    function setHeartCameraView(viewName) {
+      if (!heart3DCamera || !heart3DControls) return;
+
+      const duration = 800;
+      const startPos = heart3DCamera.position.clone();
+      let targetPos = new THREE.Vector3(0.0, -0.15, 11.2);
+
+      if (viewName === 'frontal') {
+        targetPos.set(0.0, -0.15, 11.2);
+      } else if (viewName === 'precordial') {
+        targetPos.set(4.5, 1.2, 9.8);
+      } else if (viewName === 'inferior') {
+        targetPos.set(-2.5, -6.8, 8.2);
+      } else if (viewName === 'anterior') {
+        targetPos.set(1.5, 0.0, 10.5);
+      } else if (viewName === 'lateral') {
+        targetPos.set(7.5, 2.0, 7.5);
+      }
+
+      const startTime = performance.now();
+      function stepTween(t) {
+        const elapsed = t - startTime;
+        const p = Math.min(1.0, elapsed / duration);
+        const ease = 0.5 - 0.5 * Math.cos(p * Math.PI);
+        heart3DCamera.position.lerpVectors(startPos, targetPos, ease);
+        heart3DControls.target.set(0.0, -0.15, 0.0);
+        heart3DControls.update();
+        if (p < 1.0) requestAnimationFrame(stepTween);
+      }
+      requestAnimationFrame(stepTween);
+    }
+
+    function resetHeart3DView() {
+      setHeartCameraView('frontal');
+    }
+
+    function toggleHeartPulse() {
+      heartPulseActive = !heartPulseActive;
+      const btn = document.getElementById("btn-toggle-pulse");
+      if (btn) btn.innerText = heartPulseActive ? "💓 Heartbeat: ON" : "💓 Heartbeat: OFF";
+    }
+
+    function toggleHeartTransparency() {
+      heartTranslucent = !heartTranslucent;
+      if (ventriclesMesh) {
+        ventriclesMesh.material.transparent = heartTranslucent;
+        ventriclesMesh.material.opacity = heartTranslucent ? 0.40 : 1.0;
+        ventriclesMesh.material.depthWrite = !heartTranslucent;
+      }
+    }
+
+    function toggleLeadBadges() {
+      showLeadBadges = !showLeadBadges;
+      if (leadNodesGroup) {
+        leadNodesGroup.children.forEach(g => {
+          g.children.forEach(c => {
+            if (c.name && c.name.startsWith("BADGE_")) c.visible = showLeadBadges;
+          });
+        });
+      }
+      const btn = document.getElementById("btn-toggle-badges");
+      if (btn) btn.innerText = showLeadBadges ? "🏷️ Labels: ON" : "🏷️ Labels: OFF";
+    }
+
+    function updateActiveLeads3D(activeList) {
+      if (!leadNodesGroup) return;
+      leadNodesGroup.children.forEach(group => {
+        if (!group.userData || !group.userData.data) return;
+        const u = group.userData.data.idx;
+        const isActive = activeList.includes(u);
+        group.visible = isActive;
+      });
+      filterGraphEdges(currentEdgeFilter);
+    }
+
+    // --------------------------------------------------------
+    // P. MAIN ANIMATION LOOP
+    // Nodes stationary; physiological travelling current smoothly flowing
+    // --------------------------------------------------------
+    function animateHeart3D() {
+      requestAnimationFrame(animateHeart3D);
+
+      const timeSeconds = performance.now() * 0.001;
+      heartAnimTime = timeSeconds;
+
+      // Pulse heartbeat if enabled
+      if (heartPulseActive && heartMeshGroup) {
+        const pulse = 1.0 + 0.04 * Math.pow(Math.sin(timeSeconds * 4.2), 4.0);
+        heartMeshGroup.scale.set(pulse, pulse, pulse);
+      } else if (heartMeshGroup) {
+        heartMeshGroup.scale.set(1.0, 1.0, 1.0);
+      }
+
+      // Auto-rotation if enabled
+      if (heartAutoRotate && heartMeshGroup) {
+        heartMeshGroup.rotation.y += 0.004;
+      }
+
+      // Update travelling electrical current
+      updateTravellingCurrent(timeSeconds);
+
+      if (heart3DControls) heart3DControls.update();
+      if (heart3DRenderer && heart3DScene && heart3DCamera) {
+        heart3DRenderer.render(heart3DScene, heart3DCamera);
+      }
+    }
+
 
     // Load Tables & Ablations
     async function loadTables() {
